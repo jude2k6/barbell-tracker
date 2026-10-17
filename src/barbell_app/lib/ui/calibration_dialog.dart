@@ -2,9 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'format.dart';
+import 'permission_prompts.dart';
+import 'stance_theme.dart';
+
 enum _Phase { instructions, countdown, calibrating, done, failed }
 
-/// Flat calibration: instructions, a countdown while the sensor settles,
+/// Flat calibration, styled as Stance's `StanceAlertDialog` (Stance runs it
+/// as `CalibrationScreen`): instructions, a countdown while the sensor settles,
 /// then [onCalibrate], then a success (or failure) message.
 class CalibrationDialog extends StatefulWidget {
   const CalibrationDialog({
@@ -19,12 +24,14 @@ class CalibrationDialog extends StatefulWidget {
   final int countdown;
 
   static Future<void> show(
-          BuildContext context, Future<void> Function() onCalibrate) =>
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => CalibrationDialog(onCalibrate: onCalibrate),
-      );
+    BuildContext context,
+    Future<void> Function() onCalibrate,
+  ) => showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    barrierColor: StanceAlert.scrim,
+    builder: (_) => CalibrationDialog(onCalibrate: onCalibrate),
+  );
 
   @override
   State<CalibrationDialog> createState() => _CalibrationDialogState();
@@ -74,50 +81,65 @@ class _CalibrationDialogState extends State<CalibrationDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final text = Theme.of(context).textTheme;
     final busy = _phase == _Phase.countdown || _phase == _Phase.calibrating;
-    final Widget body = switch (_phase) {
-      _Phase.instructions => const Text(
-          'Lay the sensor flat on a level surface and keep it completely '
-          'still until calibration finishes.'),
-      _Phase.countdown => Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('Lay flat, keep still',
-              style: theme.textTheme.titleMedium),
-          const SizedBox(height: 16),
-          Text('$_remaining',
-              style: theme.textTheme.displayLarge
-                  ?.copyWith(fontFeatures: const [FontFeature.tabularFigures()])),
-        ]),
-      _Phase.calibrating => const Column(mainAxisSize: MainAxisSize.min, children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 16),
-          Text('Calibrating…'),
-        ]),
-      _Phase.done => Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.check_circle, size: 56, color: theme.colorScheme.primary),
-          const SizedBox(height: 12),
-          const Text('Calibration complete.'),
-        ]),
-      _Phase.failed => Text('Calibration failed: $_error'),
-    };
-    return PopScope(
-      canPop: !busy,
-      child: AlertDialog(
-        title: const Text('Calibrate sensor'),
-        content: body,
-        actions: [
-          if (_phase == _Phase.instructions) ...[
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel')),
-            FilledButton(onPressed: _start, child: const Text('Start')),
-          ],
-          if (_phase == _Phase.done || _phase == _Phase.failed)
-            FilledButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Done')),
-        ],
+    void close() => Navigator.pop(context);
+    final alert = switch (_phase) {
+      _Phase.instructions => StanceAlert(
+        title: 'Calibration',
+        message:
+            'Place the WitMotion IMU on a flat, level surface and keep '
+            'it still. Calibration runs for ${widget.countdown} seconds '
+            'after you start.\n\nWhen you are ready, tap Start calibration.',
+        actionText: 'Start calibration',
+        onAction: _start,
+        dismissText: 'Cancel',
+        onDismiss: close,
       ),
-    );
+      _Phase.countdown => StanceAlert(
+        title: 'Calibration',
+        content: Column(
+          children: [
+            Text(
+              'Lay flat, keep still',
+              style: text.bodyMedium?.copyWith(
+                color: StanceColors.subtitleGray,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text('$_remaining s', style: text.headlineLarge.tabular),
+          ],
+        ),
+      ),
+      _Phase.calibrating => StanceAlert(
+        title: 'Calibration',
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 12),
+            Text('Calibrating…', style: text.bodyMedium),
+          ],
+        ),
+      ),
+      _Phase.done => StanceAlert(
+        title: 'Calibration complete',
+        message: 'IMU calibration finished successfully.',
+        actionText: 'OK',
+        onAction: close,
+        onClose: close,
+      ),
+      _Phase.failed => StanceAlert(
+        title: 'Calibration failed',
+        message: '$_error',
+        actionText: 'OK',
+        onAction: close,
+        onClose: close,
+      ),
+    };
+    return PopScope(canPop: !busy, child: alert);
   }
 }

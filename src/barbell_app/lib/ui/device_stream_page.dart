@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../workout/device_stream.dart';
 import 'app_scope.dart';
 import 'sensor_status_chip.dart';
+import 'stance_widgets.dart';
 import 'workout_flow.dart';
 
 /// Stance's "Test device stream" debug screen: live raw motion data from the
@@ -37,99 +38,136 @@ class _DeviceStreamPageState extends State<DeviceStreamPage> {
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     final stream = _stream!;
+    final text = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Test device stream'),
-        actions: [
-          SensorStatusChip(
-            sensor: app.sensor,
-            onPressed: () => openDevice(context),
-          ),
-        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Back button, title and status chip.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Row(
+                children: [
+                  CircleIconButton(
+                    icon: Icons.arrow_back,
+                    tooltip: 'Go back',
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 12),
+                      child: Text(
+                        'Test device stream',
+                        style: text.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SensorStatusChip(
+                    sensor: app.sensor,
+                    onPressed: () => openDevice(context),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(child: _content(context, stream)),
+          ],
+        ),
       ),
-      body: ListenableBuilder(
-        listenable: stream,
-        builder: (context, _) {
-          final points = stream.points;
-          final times = [for (final p in points) p.timeMs];
-          const r = Color(0xFFE53935), g = Color(0xFF43A047);
-          const b = Color(0xFF1E88E5), o = Color(0xFFFB8C00);
-          return ListView(
-            padding: const EdgeInsets.only(bottom: 24),
-            children: [
-              if (!stream.connected)
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(8, 8, 8, 0),
-                  child: Text('Device is not connected'),
-                ),
+    );
+  }
+
+  Widget _content(BuildContext context, DeviceStreamController stream) {
+    final text = Theme.of(context).textTheme;
+    return ListenableBuilder(
+      listenable: stream,
+      builder: (context, _) {
+        final points = stream.points;
+        final times = [for (final p in points) p.timeMs];
+        // Stance's AccX / AccY / AccZ / Q3 colours.
+        const r = Color(0xFF34C759), g = Color(0xFFFF9500);
+        const b = Color(0xFF007AFF), o = Color(0xFFFF3B30);
+        return ListView(
+          padding: const EdgeInsets.only(bottom: 24),
+          children: [
+            if (!stream.connected)
               Padding(
-                padding: const EdgeInsets.all(8),
-                child: Row(
-                  spacing: 8,
-                  children: [
-                    Expanded(
-                      child: FilledButton(
-                        key: const Key('streamStart'),
-                        onPressed: stream.canStart ? stream.start : null,
-                        child: const Text('Start'),
-                      ),
-                    ),
-                    Expanded(
-                      child: FilledButton(
-                        key: const Key('streamStop'),
-                        onPressed: stream.canStop ? stream.stop : null,
-                        child: const Text('Stop'),
-                      ),
-                    ),
-                    Expanded(
-                      child: FilledButton(
-                        key: const Key('streamClear'),
-                        onPressed: stream.clear,
-                        child: const Text('Clear'),
-                      ),
-                    ),
-                  ],
-                ),
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+                child: Text('Device is not connected', style: text.bodySmall),
               ),
-              _Badges(stream.heuristics),
-              _Legend(const [('Acc X', r), ('Acc Y', g), ('Acc Z', b)]),
-              _StreamChart(
-                label: 'Acceleration',
-                times: times,
-                streaming: stream.streaming,
-                series: [
-                  ([for (final p in points) p.ax], r),
-                  ([for (final p in points) p.ay], g),
-                  ([for (final p in points) p.az], b),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Row(
+                spacing: 8,
+                children: [
+                  Expanded(
+                    child: FilledButton(
+                      key: const Key('streamStart'),
+                      onPressed: stream.canStart ? stream.start : null,
+                      child: const Text('Start'),
+                    ),
+                  ),
+                  Expanded(
+                    child: FilledButton(
+                      key: const Key('streamStop'),
+                      onPressed: stream.canStop ? stream.stop : null,
+                      child: const Text('Stop'),
+                    ),
+                  ),
+                  Expanded(
+                    child: FilledButton(
+                      key: const Key('streamClear'),
+                      onPressed: stream.clear,
+                      child: const Text('Clear'),
+                    ),
+                  ),
                 ],
               ),
-              _Legend(const [('Q0', r), ('Q1', g), ('Q2', b), ('Q3', o)]),
-              _StreamChart(
-                label: 'Quaternion',
-                times: times,
-                streaming: stream.streaming,
-                series: [
-                  ([for (final p in points) p.q0], r),
-                  ([for (final p in points) p.q1], g),
-                  ([for (final p in points) p.q2], b),
-                  ([for (final p in points) p.q3], o),
-                ],
-              ),
-              _Legend(const [('Global', Colors.grey), ('Acc X', r), ('Acc Y', g), ('Acc Z', b)]),
-              _StreamChart(
-                label: 'Global acceleration',
-                times: times,
-                streaming: stream.streaming,
-                series: [
-                  ([for (final p in points) p.gx], r),
-                  ([for (final p in points) p.gy], g),
-                  ([for (final p in points) p.gz], b),
-                ],
-              ),
-            ],
-          );
-        },
-      ),
+            ),
+            _Badges(stream.heuristics),
+            _Legend(const [('Acc X', r), ('Acc Y', g), ('Acc Z', b)]),
+            _StreamChart(
+              label: 'Acceleration',
+              times: times,
+              streaming: stream.streaming,
+              series: [
+                ([for (final p in points) p.ax], r),
+                ([for (final p in points) p.ay], g),
+                ([for (final p in points) p.az], b),
+              ],
+            ),
+            _Legend(const [('Q0', r), ('Q1', g), ('Q2', b), ('Q3', o)]),
+            _StreamChart(
+              label: 'Quaternion',
+              times: times,
+              streaming: stream.streaming,
+              series: [
+                ([for (final p in points) p.q0], r),
+                ([for (final p in points) p.q1], g),
+                ([for (final p in points) p.q2], b),
+                ([for (final p in points) p.q3], o),
+              ],
+            ),
+            _Legend(const [
+              ('Global', Color(0xB3808080)),
+              ('Acc X', r),
+              ('Acc Y', g),
+              ('Acc Z', b),
+            ]),
+            _StreamChart(
+              label: 'Global acceleration',
+              times: times,
+              streaming: stream.streaming,
+              series: [
+                ([for (final p in points) p.gx], r),
+                ([for (final p in points) p.gy], g),
+                ([for (final p in points) p.gz], b),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -142,21 +180,27 @@ class _Badges extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget badge(String text, Color color) => Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-              color: color, borderRadius: BorderRadius.circular(12)),
-          child: Text(text, style: const TextStyle(color: Colors.white)),
-        );
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(text, style: Theme.of(context).textTheme.labelSmall),
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Wrap(
         spacing: 8,
         runSpacing: 4,
         children: [
-          badge('Is Stationary', h.stationary ? Colors.green : Colors.grey),
+          badge(
+            'Is Stationary',
+            h.stationary ? const Color(0xB334C759) : const Color(0xB3808080),
+          ),
           if (h.stationary && !h.calibrated)
-            badge('Uncalibrated', Colors.red.shade700),
-          if (h.streamingIssue) badge('Streaming issue', Colors.red.shade700),
+            badge('Uncalibrated', const Color(0xB3FF0000)),
+          if (h.streamingIssue)
+            badge('Streaming issue', const Color(0xB3FF0000)),
         ],
       ),
     );
@@ -190,7 +234,8 @@ class _Legend extends StatelessWidget {
   }
 }
 
-/// Stance's chart: fixed -3..3 range, 200 px high. While streaming it shows
+/// Stance's `DeviceStreamChart` card (gray 10 %, 10 dp radius, 4 dp shadow):
+/// fixed -3..3 range, 200 px high. While streaming it shows
 /// the last [liveWindow] points; stopped, the whole run thinned to at most
 /// [fullSeriesMaxVertices] points, scrolling sideways when it is long.
 class _StreamChart extends StatelessWidget {
@@ -228,7 +273,18 @@ class _StreamChart extends StatelessWidget {
     final scrolls = !streaming && t.length > liveWindow;
     return Padding(
       padding: const EdgeInsets.all(8),
-      child: Card(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0x1A888888),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x40000000),
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
         child: Padding(
           padding: const EdgeInsets.all(8),
           child: Column(
@@ -251,13 +307,18 @@ class _StreamChart extends StatelessWidget {
                   );
                   return scrolls
                       ? SingleChildScrollView(
-                          scrollDirection: Axis.horizontal, child: chart)
+                          scrollDirection: Axis.horizontal,
+                          child: chart,
+                        )
                       : chart;
                 },
               ),
               Padding(
                 padding: const EdgeInsets.only(left: 36),
-                child: Text('Time', style: Theme.of(context).textTheme.bodySmall),
+                child: Text(
+                  'Time',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ),
             ],
           ),
@@ -296,7 +357,10 @@ class _ChartPainter extends CustomPainter {
       final y = mapY(i.toDouble());
       canvas.drawLine(Offset(left, y), Offset(left + w, y), grid);
       final tp = TextPainter(
-        text: TextSpan(text: '$i', style: TextStyle(fontSize: 10, color: textColor)),
+        text: TextSpan(
+          text: '$i',
+          style: TextStyle(fontSize: 10, color: textColor),
+        ),
         textDirection: TextDirection.ltr,
       )..layout();
       tp.paint(canvas, Offset(left - tp.width - 4, y - tp.height / 2));

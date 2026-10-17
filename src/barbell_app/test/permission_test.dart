@@ -181,7 +181,7 @@ void main() {
       final b = FakeBackend(status: {AppCapability.camera: Access.granted});
       final s = service(b);
       final results = await host(tester, s, AppCapability.camera);
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(StanceAlert), findsNothing);
       expect(results, [true]);
     });
 
@@ -263,7 +263,7 @@ void main() {
     testWidgets('silent when Location Services is on or not needed', (tester) async {
       final b = off()..sdk = 33;
       final results = await run(tester, service(b));
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(StanceAlert), findsNothing);
       expect(results, [true]);
     });
 
@@ -292,11 +292,11 @@ void main() {
       await tester.tap(find.text('Turn on Location'));
       await tester.pumpAndSettle();
       expect(b.locationSettingsOpened, 1);
-      expect(find.byType(AlertDialog), findsOneWidget);
+      expect(find.byType(StanceAlert), findsOneWidget);
       b.locationOn = true;
       await s.refresh();
       await tester.pumpAndSettle();
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(StanceAlert), findsNothing);
       expect(results, [true]);
     });
   });
