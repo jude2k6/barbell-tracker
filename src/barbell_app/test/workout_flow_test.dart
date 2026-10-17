@@ -153,7 +153,7 @@ void main() {
       await _navigate(tester);
       expect(tester.widget<SessionsPage>(find.byType(SessionsPage)).exercise.id,
           'deadlift_sumo');
-      await _pumpUntil(tester, find.text('No sessions yet for this exercise.'));
+      await _pumpUntil(tester, find.text('Tap new session to start collecting data.'));
     });
 
     testWidgets('Sessions: Continue on the active one, View on the rest',
@@ -200,7 +200,9 @@ void main() {
       await _settleIo(tester);
 
       FilledButton continueButton() =>
-          tester.widget<FilledButton>(find.byKey(const Key('continue')));
+          tester.widget<FilledButton>(find.descendant(
+              of: find.byKey(const Key('continue')),
+              matching: find.byType(FilledButton)));
       expect(find.text('This value is saved in pounds (lb).'), findsOneWidget);
       expect(continueButton().onPressed, isNull);
       await tester.enterText(find.byKey(const Key('weightField')), '225');
@@ -217,7 +219,8 @@ void main() {
       expect(record.unit, WeightUnit.lb);
       expect(record.setType, SetType.topSet);
       expect(record.session, isNull);
-      expect(find.text('225 lb · Top set'), findsOneWidget);
+      expect(find.text('225 lb'), findsOneWidget);
+      expect(find.text('Top set'), findsOneWidget);
     });
 
     testWidgets('weight starts at the last weight, converted to the unit',

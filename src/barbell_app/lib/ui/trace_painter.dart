@@ -40,7 +40,8 @@ class TracePainter extends CustomPainter {
       Paint()
         ..color = color
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
+        ..strokeWidth = 2
+        ..strokeJoin = StrokeJoin.round,
     );
   }
 

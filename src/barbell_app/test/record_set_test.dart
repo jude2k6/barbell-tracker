@@ -131,7 +131,7 @@ void main() {
         findsOneWidget);
 
     // Leave while it analyses.
-    await tester.pageBack();
+    await tester.tap(find.byKey(const Key('workoutBack')));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     expect(find.byType(RecordSetPage), findsNothing);

@@ -17,6 +17,7 @@ import '../workout/analysis_runner.dart';
 import '../workout/file_log.dart';
 import '../workout/ids.dart';
 import '../workout/preferences.dart';
+import '../workout/sensor_controller.dart';
 import '../workout/session.dart';
 import '../workout/session_recorder.dart';
 import '../workout/set_log.dart';
@@ -27,13 +28,17 @@ import 'guides.dart';
 import 'live_trace.dart';
 import 'permission_prompts.dart';
 import 'sensor_status_chip.dart';
+import 'stance_theme.dart';
+import 'stance_widgets.dart';
 import 'video_settings_sheet.dart';
 import 'workout_flow.dart';
 
 enum _Phase { idle, recording, analysing }
 
-/// Stance's pre-recording screen: video, a big Start Set / Stop button
-/// and a timer (plus our live trace). After Stop the set is analysed under
+/// Stance's `PreRecordingRoute`: exercise, set type pill and weight, a tip,
+/// then a full-width Start Set / Stop button with the seconds above it
+/// while recording (plus our video card and live trace). After Stop the
+/// set is analysed under
 /// a 60 s countdown, saved to the session, and the session feedback page
 /// opens; there is no separate per-set result page. The lifter may leave
 /// while it analyses: the set is still saved. A setup guide shows on the
@@ -318,118 +323,150 @@ class _RecordSetPageState extends State<RecordSetPage> {
     final theme = Theme.of(context);
     final sensor = _app.sensor;
     final idle = _phase == _Phase.idle;
+    final gray = StanceColors.subtitleGray;
 
     return PopScope(
       canPop: _phase != _Phase.recording,
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.exercise.rawValue),
-          actions: [
-            IconButton(
-              key: const Key('setupGuide'),
-              tooltip: 'Setup Guide',
-              icon: const Icon(Icons.help_outline),
-              onPressed: idle ? _showSetupGuide : null,
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: SensorStatusChip(
-                sensor: sensor,
-                onPressed: idle ? () => openDevice(context) : null,
-              ),
-            ),
-          ],
-        ),
-        body: ListenableBuilder(
-          listenable: sensor,
-          builder: (context, _) => ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Text('Set ${(widget.session?.sets.length ?? 0) + 1}',
-                  style: theme.textTheme.titleLarge),
-              Text(
-                '${fmtWeight(widget.weight, widget.unit)} · '
-                '${widget.setType.displayName}',
-                key: const Key('setSummary'),
-                style: theme.textTheme.bodyLarge.tabular,
-              ),
-              if (_app.videoSettings != null) ...[
-                const SizedBox(height: 12),
-                _VideoCard(
-                  recorder: _video,
-                  settings: _videoSettings,
-                  enabled: idle,
-                  cameraBlocked: _videoSettings.enabled && !_cameraAllowed,
-                  onToggle: _setVideoEnabled,
-                  onFixAccess: () => _setVideoEnabled(true),
-                  onSettings: () => showVideoSettingsSheet(
-                      context, _app.videoSettings!, _app.permissions),
-                ),
-              ],
-              if (idle) ...[
-                const SizedBox(height: 12),
-                Card(
-                  key: const Key('recordingTip'),
-                  child: ListTile(
-                    leading: const Icon(Icons.lightbulb_outline),
-                    title: const Text('Tips'),
-                    subtitle: Text(_tip),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: ListenableBuilder(
+              listenable: sensor,
+              builder: (context, _) => CustomScrollView(slivers: [
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _WorkoutTopBar(
+                        sensor: sensor,
+                        enabled: idle,
+                        trailing: _GuideHeaderButton(
+                          key: const Key('setupGuide'),
+                          label: 'Setup Guide',
+                          onPressed: idle ? _showSetupGuide : null,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.exercise.rawValue,
+                              style: theme.textTheme.bodyLarge?.copyWith(color: gray)),
+                          Container(
+                            margin: const EdgeInsets.only(top: 8),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0x14FFFFFF),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(widget.setType.displayName,
+                                style: theme.textTheme.labelMedium
+                                    ?.copyWith(color: gray)),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(fmtWeight(widget.weight, widget.unit),
+                              key: const Key('setSummary'),
+                              style: theme.textTheme.displaySmall.tabular),
+                        ],
+                      ),
+                      if (_app.videoSettings != null) ...[
+                        const SizedBox(height: 16),
+                        _VideoCard(
+                          recorder: _video,
+                          settings: _videoSettings,
+                          enabled: idle,
+                          cameraBlocked: _videoSettings.enabled && !_cameraAllowed,
+                          onToggle: _setVideoEnabled,
+                          onFixAccess: () => _setVideoEnabled(true),
+                          onSettings: () => showVideoSettingsSheet(
+                              context, _app.videoSettings!, _app.permissions),
+                        ),
+                      ],
+                      const Spacer(),
+                      Padding(
+                        key: const Key('recordingTip'),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        child: Column(children: [
+                          Text('Tips', style: theme.textTheme.titleMedium),
+                          const SizedBox(height: 8),
+                          Text(_tip,
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyMedium?.copyWith(color: gray)),
+                        ]),
+                      ),
+                      const Spacer(),
+                      if (_phase == _Phase.analysing) ...[
+                        _AnalysisCountdown(
+                            elapsed: _analysisClock.elapsed, total: _analysisCountdown),
+                        const SizedBox(height: 12),
+                      ] else if (_phase == _Phase.recording) ...[
+                        // Own addition: the live trace above Stance's
+                        // progress bar and seconds.
+                        LiveTrace(sensor: sensor, height: 120, color: StanceColors.error),
+                        const SizedBox(height: 8),
+                        const LinearProgressIndicator(),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          Text('${_stopwatch.elapsed.inSeconds}s',
+                              style: theme.textTheme.bodyMedium.tabular),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text('${_recording?.samples.length ?? 0} samples',
+                                style: theme.textTheme.bodySmall.tabular
+                                    ?.copyWith(color: gray)),
+                          ),
+                          // Stance's RecordingControlsRow badge.
+                          if (assessRecentSignal(_recording?.samples ?? const [])
+                              case final quality?)
+                            SignalQualityBadge(quality: quality),
+                        ]),
+                        const SizedBox(height: 12),
+                      ],
+                      if (!sensor.isStreaming && idle) ...[
+                        Text('Sensor not streaming. Connect your sensor to record.',
+                            style: theme.textTheme.bodyMedium),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _StanceButton(
+                            label: 'Device',
+                            height: 50,
+                            onPressed: () => openDevice(context),
+                          ),
+                        ),
+                      ],
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: _StanceButton(
+                          key: const Key('recordButton'),
+                          label: switch (_phase) {
+                            _Phase.idle => 'Start Set',
+                            _Phase.recording => 'Stop',
+                            _Phase.analysing => 'Please wait…',
+                          },
+                          height: 50,
+                          onPressed: switch (_phase) {
+                            _Phase.idle => sensor.isStreaming ? _start : null,
+                            _Phase.recording => _stop,
+                            _Phase.analysing => null,
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-              const SizedBox(height: 24),
-              if (!sensor.isStreaming && idle)
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.sensors_off),
-                    title: const Text('Sensor not streaming'),
-                    subtitle: const Text('Connect your sensor to record.'),
-                    trailing: TextButton(
-                        onPressed: () => openDevice(context),
-                        child: const Text('Device')),
-                  ),
-                ),
-              if (_phase == _Phase.recording) ...[
-                Center(
-                  child: Text(fmtElapsed(_stopwatch.elapsed),
-                      style: theme.textTheme.displaySmall.tabular),
-                ),
-                Center(
-                  child: Text('${_recording?.samples.length ?? 0} samples',
-                      style: theme.textTheme.bodySmall.tabular),
-                ),
-                const SizedBox(height: 8),
-                LiveTrace(sensor: sensor, color: theme.colorScheme.error),
-              ],
-              const SizedBox(height: 24),
-              // Stance's RecordingControlsRow: the button, then the live
-              // signal badge once there are samples.
-              Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-                _RecordButton(
-                  phase: _phase,
-                  onPressed: switch (_phase) {
-                    _Phase.idle => sensor.isStreaming ? _start : null,
-                    _Phase.recording => _stop,
-                    _Phase.analysing => null,
-                  },
-                ),
-                if (_phase == _Phase.recording)
-                  if (assessRecentSignal(_recording?.samples ?? const [])
-                      case final quality?)
-                    SignalQualityBadge(quality: quality),
               ]),
-              if (_phase == _Phase.analysing) ...[
-                const SizedBox(height: 16),
-                _AnalysisCountdown(
-                    elapsed: _analysisClock.elapsed, total: _analysisCountdown),
-              ],
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 }
+
 
 /// Record-video switch, settings, and a live preview while enabled.
 class _VideoCard extends StatelessWidget {
@@ -515,8 +552,9 @@ class _VideoCard extends StatelessWidget {
   }
 }
 
-/// Stance's analysis wait: a bar counting down 60 s, then "Taking longer
-/// than usual".
+/// Stance's `AnalysisCountdownBar`: "Analysing your set" and the seconds
+/// left over a 10 dp bar that fills over 60 s (indeterminate once
+/// overdue), on a 16 dp rounded panel at white 8 %.
 class _AnalysisCountdown extends StatelessWidget {
   const _AnalysisCountdown({required this.elapsed, required this.total});
 
@@ -527,16 +565,38 @@ class _AnalysisCountdown extends StatelessWidget {
     final theme = Theme.of(context);
     final left = total - elapsed;
     final overdue = left <= Duration.zero;
-    return Column(key: const Key('analysisCountdown'), children: [
-      LinearProgressIndicator(
-          value: overdue ? null : left.inMilliseconds / total.inMilliseconds),
-      const SizedBox(height: 8),
-      Text(overdue ? 'Taking longer than usual' : '${(left.inMilliseconds / 1000).ceil()}s left',
-          style: theme.textTheme.bodyMedium.tabular),
-      const SizedBox(height: 4),
-      Text('You can leave this screen — your set will still be saved.',
-          textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
-    ]);
+    final note = theme.textTheme.labelMedium?.copyWith(color: StanceColors.subtitleGray);
+    return Container(
+      key: const Key('analysisCountdown'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0x14FFFFFF),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+              child: Text('Analysing your set', style: theme.textTheme.bodyLarge)),
+          Text(
+              overdue
+                  ? 'Taking longer than usual'
+                  : '${(left.inMilliseconds / 1000).ceil()}s left',
+              style: note.tabular),
+        ]),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(5),
+          child: LinearProgressIndicator(
+            minHeight: 10,
+            color: StanceColors.primary,
+            backgroundColor: const Color(0x33FFFFFF),
+            value: overdue ? null : elapsed.inMilliseconds / total.inMilliseconds,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text('You can leave this screen — your set will still be saved.', style: note),
+      ]),
+    );
   }
 }
 
@@ -551,9 +611,9 @@ class SignalQualityBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = switch (quality.rating) {
-      SignalRating.good => Colors.green,
-      SignalRating.fair => Colors.amber.shade800,
-      SignalRating.poor => theme.colorScheme.error,
+      SignalRating.good => StanceColors.success,
+      SignalRating.fair => StanceColors.amber,
+      SignalRating.poor => StanceColors.error,
     };
     return Material(
       key: const Key('signalQualityBadge'),
@@ -573,45 +633,118 @@ class SignalQualityBadge extends StatelessWidget {
   }
 }
 
-class _RecordButton extends StatelessWidget {
-  const _RecordButton({required this.phase, required this.onPressed});
+/// Stance's `WorkoutTopBar`: a 44 dp row with the back button, then
+/// [trailing] and the device status on the right. (The page supplies the
+/// 18 dp side inset.)
+class _WorkoutTopBar extends StatelessWidget {
+  const _WorkoutTopBar(
+      {required this.sensor, required this.enabled, required this.trailing});
 
-  final _Phase phase;
+  final SensorController sensor;
+
+  /// Device status opens the device page only while idle.
+  final bool enabled;
+  final Widget trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: Row(children: [
+        CircleIconButton(
+          key: const Key('workoutBack'),
+          icon: Icons.arrow_back,
+          tooltip: 'Back',
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        const Spacer(),
+        trailing,
+        const SizedBox(width: 8),
+        SensorStatusChip(
+            sensor: sensor, onPressed: enabled ? () => openDevice(context) : null),
+      ]),
+    );
+  }
+}
+
+/// Stance's `GuideHeaderButton`: a 32 dp pill with a 2 dp pink-to-purple
+/// (70 %) gradient outline, an icon and 14 sp semibold text; half opacity
+/// while disabled. Stance's icon is its `stance_ai` vector drawable; a
+/// Material sparkle stands in.
+class _GuideHeaderButton extends StatelessWidget {
+  const _GuideHeaderButton({super.key, required this.label, this.onPressed});
+
+  final String label;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final recording = phase == _Phase.recording;
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      SizedBox.square(
-        dimension: 112,
-        child: FilledButton(
-          key: const Key('recordButton'),
-          style: FilledButton.styleFrom(
-            shape: const CircleBorder(),
-            padding: EdgeInsets.zero,
-            backgroundColor: recording ? scheme.error : scheme.primary,
-            foregroundColor: recording ? scheme.onError : scheme.onPrimary,
+    return Opacity(
+      opacity: onPressed == null ? 0.5 : 1,
+      child: Tooltip(
+        message: label,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            height: 32,
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: const LinearGradient(
+                  colors: [Color(0xB3F415C3), Color(0xB3792EFF)]),
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: StanceColors.background,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.auto_awesome, size: 20, color: Color(0xFFF415C3)),
+                const SizedBox(width: 4),
+                Text(label,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white)),
+              ]),
+            ),
           ),
-          onPressed: onPressed,
-          child: phase == _Phase.analysing
-              ? const SizedBox.square(
-                  dimension: 40, child: CircularProgressIndicator())
-              : Icon(recording ? Icons.stop : Icons.fiber_manual_record,
-                  size: 56),
         ),
       ),
-      const SizedBox(height: 8),
-      Text(
-        switch (phase) {
-          _Phase.idle => 'Start Set',
-          _Phase.recording => 'Stop',
-          _Phase.analysing => 'Analysing your set',
-        },
-        style: theme.textTheme.titleMedium,
+    );
+  }
+}
+
+/// Stance's `StanceButton` (Primary, or Idle while disabled): white
+/// bodyLarge semibold on the primary colour, 16 dp corners.
+class _StanceButton extends StatelessWidget {
+  const _StanceButton(
+      {super.key, required this.label, required this.onPressed, this.height = 42});
+
+  final String label;
+  final VoidCallback? onPressed;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton(
+      style: FilledButton.styleFrom(
+        minimumSize: Size.fromHeight(height),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: StanceColors.primary,
+        foregroundColor: Colors.white,
+        disabledBackgroundColor: const Color(0x0FFFFFFF),
+        disabledForegroundColor: const Color(0xFF888888),
+        textStyle: Theme.of(context)
+            .textTheme
+            .bodyLarge
+            ?.copyWith(fontWeight: FontWeight.w600),
       ),
-    ]);
+      onPressed: onPressed,
+      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+    );
   }
 }
