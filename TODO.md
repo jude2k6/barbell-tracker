@@ -149,16 +149,38 @@ decompiled app. Trace how Stance implements each one before building it.
       streaming-issue badges. Skipped rows: Firebase ID, BLE stack switch,
       Recording/Calibration screens, sync diagnostics, Sign out; and
       per-screen lifecycle logging.
-- [ ] **Visual style** *(Stance, `presentation/theme`)*: the theme is
-      ported (`ui/stance_theme.dart`: dark-only colour scheme, Poppins
-      type scale and fonts from the APK, shapes). Home matches
-      `HomeScreen`: the top row with the settings circle and the
-      `SmallDeviceStatusButton` pill (now used on every page), the 40 sp
-      title, and group → exercise drill-down with `ExerciseCatalogRow` cards
-      and the BETA badge. Other screens only get the theme so far; port
-      each screen's own layout next (Sessions, Weight input, Record,
-      Feedback). Own additions on Home: the Bluetooth card, and the
-      Recordings menu item.
+- [x] **Visual style** *(Stance, `presentation/theme` and each screen's
+      composables)*: done. Theme in `ui/stance_theme.dart` (dark-only
+      scheme, Poppins from the APK, type scale, shapes). Every screen now
+      follows its Stance composable: Home (group drill-down), Sessions,
+      Weight input, Pre-recording, Session feedback with its sheets, guides
+      and charts, the detail sheets (readiness, RPE profile, Rep Check, tag
+      editor, video), Device/Calibration/Stream/Debug, Preferences, User
+      Details and the import card. Behaviour changes made to match Stance:
+      New Session shows only when no session is active; the record timer
+      counts whole seconds; Preferences has no back button.
+- [ ] **Visual style follow-ups**:
+      - Move the duplicated design-system widgets into
+        `ui/stance_widgets.dart` / `ui/stance_theme.dart`. These are
+        StanceButton, WorkoutTopBar, the small and extra-small buttons,
+        StanceSegmentedTabs, StanceMenuPicker, StanceAlert, stanceCard and
+        the extra colours. Copies currently sit in `comparison_views.dart`,
+        `guides.dart`, `permission_prompts.dart`, `scan_list.dart`,
+        `rpe_profile_page.dart`, `rep_check_page.dart`, the three workout
+        pages, `preferences_page.dart` and `user_details_sheet.dart`.
+      - Extract the vector drawables `stance_ai` (`res/Fn.xml`) and
+        `icon_comparison`. Sparkle and compare-arrows icons stand in for
+        them now.
+      - `SessionTagsRow` (Sessions cards, feedback header) still uses
+        Material chips, not Stance's `SessionTagPill`.
+      - Not yet seen on screen, even in test renders: the connected-device
+        view, the permission dialogs, the RPE profile page and the video
+        review page.
+      - The confirm dialogs on Rep Check and RPE still use plain
+        AlertDialog.
+      - Stance runs Calibration as a full screen with a 10 s run; ours is a
+        5 s dialog. Stance's "Start Set + Video" full-screen capture mode
+        isn't ported; our video card stands in.
 
 Deliberately out of scope: auth, onboarding and welcome screens, the
 affiliate and WhatsApp prompts, "update required", cloud sync (Supabase),
