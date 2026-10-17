@@ -9,13 +9,15 @@ import '../workout/guide_tips.dart';
 import '../workout/load_velocity.dart';
 import '../workout/preferences.dart';
 import '../workout/readiness.dart';
-import '../workout/reprocess.dart';
 import '../workout/rep_editing.dart';
+import '../workout/reprocess.dart';
 import '../workout/rpe_profile.dart';
 import '../workout/session.dart';
 import '../workout/session_comparison.dart';
 import '../workout/session_tags.dart';
 import 'app_scope.dart';
+import 'app_theme.dart';
+import 'app_widgets.dart';
 import 'charts/load_velocity_chart.dart';
 import 'charts/rep_velocity_chart.dart';
 import 'charts/rpe_profile_chart.dart';
@@ -26,10 +28,7 @@ import 'guides.dart';
 import 'rep_check_page.dart';
 import 'reprocess_banner.dart';
 import 'rpe_profile_page.dart';
-import 'sensor_status_chip.dart';
 import 'session_tag_editor.dart';
-import 'stance_theme.dart';
-import 'stance_widgets.dart';
 import 'video_review_page.dart';
 import 'workout_flow.dart';
 
@@ -397,35 +396,24 @@ class _SessionFeedbackPageState extends State<SessionFeedbackPage> {
     final s = _session;
     // Stance's `WorkoutTopBar`: back, then the screen's actions (the guide
     // button; here also the session menu) and the device status button.
-    final topBar = SizedBox(
-      height: 44,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        child: Row(children: [
-          CircleIconButton(
-            icon: Icons.arrow_back,
-            tooltip: 'Back',
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-          const Spacer(),
-          _GuideHeaderButton(
-            key: const Key('walkthroughButton'),
-            onPressed: () => showGuide(context, feedbackWalkthroughSteps),
-          ),
-          const SizedBox(width: 8),
-          PopupMenuButton<VoidCallback>(
-            tooltip: 'More',
-            onSelected: (f) => f(),
-            itemBuilder: (_) => [
-              PopupMenuItem(value: _openRpeProfile, child: const Text('Edit RPE Profile')),
-              PopupMenuItem(value: _deleteSession, child: const Text('Delete session')),
-            ],
-            child: const CircleIconButton(icon: Icons.more_vert),
-          ),
-          const SizedBox(width: 8),
-          SensorStatusChip(sensor: _app.sensor, onPressed: () => openDevice(context)),
-        ]),
-      ),
+    final topBar = WorkoutTopBar(
+      sensor: _app.sensor,
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      actions: [
+        GuideHeaderButton(
+          key: const Key('walkthroughButton'),
+          onPressed: () => showGuide(context, feedbackWalkthroughSteps),
+        ),
+        PopupMenuButton<VoidCallback>(
+          tooltip: 'More',
+          onSelected: (f) => f(),
+          itemBuilder: (_) => [
+            PopupMenuItem(value: _openRpeProfile, child: const Text('Edit RPE Profile')),
+            PopupMenuItem(value: _deleteSession, child: const Text('Delete session')),
+          ],
+          child: const CircleIconButton(icon: Icons.more_vert),
+        ),
+      ],
     );
     return Scaffold(
       body: Stack(children: [
@@ -502,45 +490,6 @@ class _SessionFeedbackPageState extends State<SessionFeedbackPage> {
   }
 }
 
-/// Stance's `GuideHeaderButton`: a 32 dp pill with a 2 dp Pink→Primary
-/// (70 %) border, the AI mark and "Guide" in 14 sp semibold.
-class _GuideHeaderButton extends StatelessWidget {
-  const _GuideHeaderButton({super.key, required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => Tooltip(
-        message: 'Guide',
-        child: GestureDetector(
-          onTap: onPressed,
-          child: Container(
-            height: 32,
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: const LinearGradient(
-                  colors: [Color(0xB3F415C3), Color(0xB3792EFF)]),
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: StanceColors.background,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.auto_awesome, size: 20, color: StanceColors.secondaryPrime),
-                SizedBox(width: 4),
-                Text('Guide',
-                    style: TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
-              ]),
-            ),
-          ),
-        ),
-      );
-}
-
 /// The exercise title (headlineSmall) and Stance's `SessionDayTagDropdown`
 /// (a gray tag glyph and a menu picker), plus our session tag editor.
 class _Header extends StatelessWidget {
@@ -561,9 +510,9 @@ class _Header extends StatelessWidget {
       Text(s.exerciseTitle, style: theme.textTheme.headlineSmall),
       const SizedBox(height: 8),
       Row(children: [
-        const Icon(Icons.local_offer, size: 15, color: StanceExtraColors.gray),
+        const Icon(Icons.local_offer, size: 15, color: AppColors.gray),
         const SizedBox(width: 8),
-        StanceMenuPicker<SessionDayType?>(
+        AppMenuPicker<SessionDayType?>(
           key: const Key('dayTypeDropdown'),
           value: SessionDayType.fromTags(s.tags),
           values: const [null, ...SessionDayType.values],
@@ -639,16 +588,16 @@ class _TagPrompt extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text('What type of session are you doing today?',
                           style: theme.textTheme.bodyMedium
-                              ?.copyWith(color: StanceColors.subtitleGray)),
+                              ?.copyWith(color: AppColors.subtitleGray)),
                       const SizedBox(height: 10),
                       for (final d in SessionDayType.values)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: Material(
-                            color: StanceColors.cardFill,
+                            color: AppColors.cardFill,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
-                              side: const BorderSide(color: StanceExtraColors.cardStroke),
+                              side: const BorderSide(color: AppColors.cardStroke),
                             ),
                             clipBehavior: Clip.antiAlias,
                             child: InkWell(
@@ -731,8 +680,8 @@ class _ComparisonSection extends StatelessWidget {
     final data =
         buildLoadVelocity(s, unit: unit, comparison: comparison, choice: choice);
     final gray = theme.textTheme.bodyMedium
-        ?.copyWith(color: StanceExtraColors.gray, fontWeight: FontWeight.w500);
-    final speedPicker = StanceMenuPicker<SpeedChoice>(
+        ?.copyWith(color: AppColors.gray, fontWeight: FontWeight.w500);
+    final speedPicker = AppMenuPicker<SpeedChoice>(
       value: choice,
       values: SpeedChoice.values,
       label: (c) => c == SpeedChoice.fastest ? 'Fastest' : 'Last',
@@ -770,14 +719,14 @@ class _ComparisonSection extends StatelessWidget {
                 ),
                 speedPicker,
               ] else ...[
-                const Icon(Icons.compare_arrows, size: 15, color: StanceExtraColors.gray),
+                const Icon(Icons.compare_arrows, size: 15, color: AppColors.gray),
                 const SizedBox(width: 8),
                 Text('Compare:',
                     style: theme.textTheme.labelSmall
-                        ?.copyWith(color: StanceExtraColors.gray)),
+                        ?.copyWith(color: AppColors.gray)),
                 const SizedBox(width: 8),
                 Flexible(
-                  child: StanceMenuPicker<String?>(
+                  child: AppMenuPicker<String?>(
                     key: const Key('comparisonPicker'),
                     value: comparison?.id,
                     values: [null, for (final o in candidates) o.id],
@@ -795,7 +744,7 @@ class _ComparisonSection extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.only(top: 16, bottom: 20),
-          child: StanceSegmentedTabs<ComparisonView>(
+          child: AppSegmentedTabs<ComparisonView>(
             values: ComparisonView.values,
             selected: view,
             label: (v) => v.label,
@@ -809,7 +758,7 @@ class _ComparisonSection extends StatelessWidget {
                   child: Center(
                     child: Text('No data available for chart',
                         style: theme.textTheme.bodyMedium
-                            ?.copyWith(color: StanceColors.subtitleGray)),
+                            ?.copyWith(color: AppColors.subtitleGray)),
                   ),
                 )
               : LoadVelocityChart(
@@ -828,7 +777,7 @@ class _ComparisonSection extends StatelessWidget {
                   child: ListView(padding: EdgeInsets.zero, children: [
                     block(
                       'This Session · ${fmtDate(s.startedAt)}',
-                      StanceColors.primary,
+                      AppColors.primary,
                       ComparisonTable(
                         rows: comparisonTable(s, choice),
                         unit: unit,
@@ -840,24 +789,24 @@ class _ComparisonSection extends StatelessWidget {
                     if (comparison == null) ...[
                       Text('Comparison Session',
                           style: theme.textTheme.titleSmall?.copyWith(
-                              color: StanceColors.secondaryPrime,
+                              color: AppColors.secondaryPrime,
                               fontWeight: FontWeight.w600)),
                       Container(
                         margin: const EdgeInsets.symmetric(vertical: 20),
                         padding: const EdgeInsets.symmetric(vertical: 20),
                         decoration: BoxDecoration(
-                          color: StanceColors.cardFill,
+                          color: AppColors.cardFill,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         alignment: Alignment.center,
                         child: Text('No previous sessions available',
                             style: theme.textTheme.bodyMedium
-                                ?.copyWith(color: StanceExtraColors.gray)),
+                                ?.copyWith(color: AppColors.gray)),
                       ),
                     ] else
                       block(
                         'Comparison Session · ${fmtDate(comparison.startedAt)}',
-                        StanceColors.secondaryPrime,
+                        AppColors.secondaryPrime,
                         ComparisonTable(rows: comparisonTable(comparison, choice), unit: unit),
                       ),
                   ]),
@@ -970,7 +919,7 @@ class _SetSheet extends StatelessWidget {
           if (active) ...[
             FilledButton(
               key: const Key('newSet'),
-              style: stanceButtonStyle(context),
+              style: appButtonStyle(context, radius: 8, height: 40),
               onPressed: onNewSet,
               child: const Text('New set'),
             ),
@@ -1017,7 +966,7 @@ class _SetSheet extends StatelessWidget {
               padding: const EdgeInsets.only(top: 12),
               child: Text(set.note!,
                   style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: StanceColors.subtitleGray)),
+                      ?.copyWith(color: AppColors.subtitleGray)),
             ),
           const SizedBox(height: 12),
         ]),
@@ -1057,7 +1006,7 @@ class _SetSelector extends StatelessWidget {
     final hasPrevious = i > 0, hasNext = i < session.sets.length - 1;
     // Stance's StanceSubheadlineMedium (15/20) and StanceHeadlineBold (17/22).
     const sub = TextStyle(
-        fontSize: 15, height: 20 / 15, fontWeight: FontWeight.w500, color: StanceExtraColors.gray);
+        fontSize: 15, height: 20 / 15, fontWeight: FontWeight.w500, color: AppColors.gray);
     final weight = set.weight > 0 ? fmtWeight(set.weight, set.unit) : 'Set ${i + 1}';
     // Stance's CircularIconButton, the chevron gray at either end.
     Widget arrow(IconData icon, bool enabled, int to, String key, String tip) =>
@@ -1073,7 +1022,7 @@ class _SetSelector extends StatelessWidget {
               decoration: const BoxDecoration(
                   shape: BoxShape.circle, color: Color(0x0DFFFFFF)),
               child: Icon(icon,
-                  color: enabled ? Colors.white : StanceExtraColors.gray),
+                  color: enabled ? Colors.white : AppColors.gray),
             ),
           ),
         );
@@ -1133,10 +1082,10 @@ class _CardTap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-        color: StanceColors.cardFill,
+        color: AppColors.cardFill,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radius),
-          side: const BorderSide(color: StanceExtraColors.cardStroke),
+          side: const BorderSide(color: AppColors.cardStroke),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(onTap: onTap, child: child),
@@ -1192,7 +1141,7 @@ class _ReadinessMiniCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelSmall?.copyWith(
-                    color: StanceColors.subtitleGray, fontWeight: FontWeight.w500)),
+                    color: AppColors.subtitleGray, fontWeight: FontWeight.w500)),
           ],
         );
     return _CardTap(
@@ -1213,17 +1162,17 @@ class _ReadinessMiniCard extends StatelessWidget {
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Expanded(
                 flex: 130,
-                child: column('This Session', readinessSpeed(set), StanceColors.primary, true)),
+                child: column('This Session', readinessSpeed(set), AppColors.primary, true)),
             const SizedBox(width: 6),
             Expanded(
                 flex: 90,
                 child: column('Last Session', result.lastSessionSpeed,
-                    StanceColors.primaryLight, false)),
+                    AppColors.primaryLight, false)),
             const SizedBox(width: 6),
             Expanded(
                 flex: 90,
                 child: column('Average', result.historicAverage,
-                    StanceColors.primaryVariant, false)),
+                    AppColors.primaryVariant, false)),
           ]),
         ]),
       ),
@@ -1246,14 +1195,14 @@ class _ReadinessVerdictRow extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           gradient: const LinearGradient(
-              colors: [StanceExtraColors.pink, StanceColors.primary]),
+              colors: [AppColors.pink, AppColors.primary]),
         ),
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             // Primary 8 % over FourgroundSolid.
             color: Color.alphaBlend(
-                const Color(0x14792EFF), StanceExtraColors.fourgroundSolid),
+                const Color(0x14792EFF), AppColors.fourgroundSolid),
             borderRadius: BorderRadius.circular(15),
           ),
           child: Row(children: [
@@ -1338,7 +1287,7 @@ class _RpeCard extends StatelessWidget {
             Flexible(
               child: Text('What RPE was the set?',
                   style: theme.textTheme.bodyLarge
-                      ?.copyWith(color: StanceColors.subtitleGray)),
+                      ?.copyWith(color: AppColors.subtitleGray)),
             )
           else
             _RpeBadge(r),
@@ -1359,7 +1308,7 @@ class _RpeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = rpeColor(rpe) ?? StanceColors.primary;
+    final color = rpeColor(rpe) ?? AppColors.primary;
     final text = fmtRpe(rpe);
     return Container(
       width: 44,

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:barbell_app/analysis/exercises.dart';
 import 'package:barbell_app/recording/recording.dart';
 import 'package:barbell_app/ui/app_scope.dart';
+import 'package:barbell_app/ui/app_widgets.dart';
 import 'package:barbell_app/ui/charts/load_velocity_chart.dart';
 import 'package:barbell_app/ui/charts/rep_velocity_chart.dart';
 import 'package:barbell_app/ui/comparison_views.dart';
@@ -174,7 +175,7 @@ void main() {
         await tester.pump();
       }
 
-      final picker = tester.widget<StanceMenuPicker<String?>>(
+      final picker = tester.widget<AppMenuPicker<String?>>(
           find.byKey(const Key('comparisonPicker')));
       expect(picker.value, 'newer');
       final chart = tester.widget<LoadVelocityChart>(

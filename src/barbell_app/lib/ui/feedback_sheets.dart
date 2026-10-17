@@ -7,13 +7,14 @@ import '../workout/readiness.dart';
 import '../workout/rep_editing.dart';
 import '../workout/rpe_profile.dart';
 import '../workout/session.dart';
+import 'app_theme.dart';
+import 'app_widgets.dart';
 import 'charts/rpe_profile_chart.dart';
 import 'charts/velocity_chart.dart';
 import 'charts/weight_history_chart.dart';
 import 'comparison_views.dart';
 import 'format.dart';
 import 'readiness_card.dart';
-import 'stance_theme.dart';
 import 'rep_table.dart';
 
 /// The modal sheets opened from the session feedback page's set cards
@@ -29,7 +30,7 @@ Future<T?> _sheet<T>(
   String? title,
   TextStyle? Function(TextTheme)? titleStyle,
   WidgetBuilder? action,
-  Color color = StanceExtraColors.fourgroundSolid,
+  Color color = AppColors.fourgroundSolid,
   double padding = 16,
 }) =>
     showModalBottomSheet<T>(
@@ -72,7 +73,7 @@ TextStyle? _heading(BuildContext context) => Theme.of(context).textTheme.bodyLar
 /// Secondary text in the sheets (SubtitleGray).
 TextStyle? _subtitle(BuildContext context, [TextStyle? Function(TextTheme)? base]) =>
     (base ?? (t) => t.bodyMedium)(Theme.of(context).textTheme)
-        ?.copyWith(color: StanceColors.subtitleGray);
+        ?.copyWith(color: AppColors.subtitleGray);
 
 Future<void> showReadinessSheet(
         BuildContext context, ReadinessResult result, SetRecord set) =>
@@ -87,7 +88,7 @@ Future<void> showWeightPerformanceTutorial(BuildContext context) =>
       isScrollControlled: true,
       showDragHandle: true,
       useSafeArea: true,
-      backgroundColor: StanceExtraColors.fourgroundSolid,
+      backgroundColor: AppColors.fourgroundSolid,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
       builder: (context) {
@@ -125,7 +126,7 @@ Future<void> showRepSpeedSheet(BuildContext context,
       : const <WeightHistoryPoint>[];
   // Stance's `RepSpeedDetailSheet`: no title, Secondary (#363536) fill,
   // 26 dp sides.
-  return _sheet(color: StanceColors.secondary, padding: 26, context, (context) {
+  return _sheet(color: AppColors.secondary, padding: 26, context, (context) {
     final theme = Theme.of(context);
     final reps = set.reps;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -176,7 +177,7 @@ Future<void> showRepSpeedSheet(BuildContext context,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(children: [
-                  const Icon(Icons.info_outline, size: 20, color: StanceColors.subtitleGray),
+                  const Icon(Icons.info_outline, size: 20, color: AppColors.subtitleGray),
                   const SizedBox(width: 8),
                   Text('How do I use this?', style: _subtitle(context, (t) => t.bodyLarge)),
                   const Spacer(),
@@ -244,14 +245,14 @@ class _RpeEditorState extends State<_RpeEditor> {
     final theme = Theme.of(context);
     final profile = widget.profile;
     final speed = profile?.lastRepSpeed;
-    final color = rpeColor(_rpe) ?? StanceColors.primary;
+    final color = rpeColor(_rpe) ?? AppColors.primary;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       // Stance: "RPE" in headlineLarge with a small Save button.
       Row(children: [
         Expanded(child: Text('RPE', style: theme.textTheme.headlineLarge)),
         FilledButton(
           key: const Key('rpeSave'),
-          style: stanceSmallButtonStyle(context),
+          style: appSmallButtonStyle(context),
           onPressed: () => Navigator.of(context).pop(RpeChoice(_rpe)),
           child: const Text('Save'),
         ),
@@ -267,7 +268,7 @@ class _RpeEditorState extends State<_RpeEditor> {
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(12),
-          decoration: stanceCard(),
+          decoration: appCard(),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text('Speed-Intensity Profile', style: _heading(context)),
             RpeProfileChart(profile: profile),
@@ -287,7 +288,7 @@ class _RpeEditorState extends State<_RpeEditor> {
           child: Align(
             alignment: Alignment.centerLeft,
             child: FilledButton(
-              style: stanceSmallButtonStyle(context, secondary: true),
+              style: appSmallButtonStyle(context, secondary: true),
               onPressed: widget.onEditProfile,
               child: const Text('Edit Profile'),
             ),
@@ -298,7 +299,7 @@ class _RpeEditorState extends State<_RpeEditor> {
       Container(
         margin: const EdgeInsets.only(top: 16),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-        decoration: stanceCard(),
+        decoration: appCard(),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Stack(alignment: Alignment.center, children: [
             Text(fmtRpe(_rpe),
@@ -310,7 +311,7 @@ class _RpeEditorState extends State<_RpeEditor> {
                 alignment: Alignment.centerRight,
                 child: FilledButton(
                   key: const Key('rpeClear'),
-                  style: stanceSmallButtonStyle(context, secondary: true),
+                  style: appSmallButtonStyle(context, secondary: true),
                   onPressed: () => Navigator.of(context).pop(const RpeChoice(null)),
                   child: const Text('Clear'),
                 ),
@@ -319,7 +320,7 @@ class _RpeEditorState extends State<_RpeEditor> {
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               thumbColor: Colors.white,
-              activeTrackColor: StanceColors.primary,
+              activeTrackColor: AppColors.primary,
               inactiveTrackColor: const Color(0x26FFFFFF),
               activeTickMarkColor: const Color(0x59FFFFFF),
               inactiveTickMarkColor: const Color(0x59FFFFFF),
@@ -536,18 +537,18 @@ class _SetEditorState extends State<_SetEditor> {
         Expanded(child: Text('Edit Set', style: theme.textTheme.headlineMedium)),
         TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            style: TextButton.styleFrom(foregroundColor: StanceColors.subtitleGray),
+            style: TextButton.styleFrom(foregroundColor: AppColors.subtitleGray),
             child: const Text('Cancel')),
         const SizedBox(width: 8),
         FilledButton(
             key: const Key('editDone'),
-            style: stanceSmallButtonStyle(context),
+            style: appSmallButtonStyle(context),
             onPressed: _done,
             child: const Text('Done')),
       ]),
       Padding(
         padding: const EdgeInsets.only(top: 16, bottom: 20),
-        child: StanceSegmentedTabs<bool>(
+        child: AppSegmentedTabs<bool>(
           values: const [false, true],
           selected: _details,
           label: (d) => d ? 'Details' : 'Reps',
@@ -571,13 +572,13 @@ class _SetEditorState extends State<_SetEditor> {
           decoration: InputDecoration(
             suffixText: _set.unit.name,
             filled: true,
-            fillColor: StanceColors.cardFill,
+            fillColor: AppColors.cardFill,
             border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: StanceExtraColors.cardStroke)),
+                borderSide: const BorderSide(color: AppColors.cardStroke)),
             enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: StanceExtraColors.cardStroke)),
+                borderSide: const BorderSide(color: AppColors.cardStroke)),
           ),
         ),
         const SizedBox(height: 20),
@@ -590,9 +591,9 @@ class _SetEditorState extends State<_SetEditor> {
               label: Text(t.displayName),
               selected: _setType == t,
               showCheckmark: false,
-              selectedColor: StanceColors.primary,
-              backgroundColor: StanceColors.cardFill,
-              side: const BorderSide(color: StanceExtraColors.cardStroke),
+              selectedColor: AppColors.primary,
+              backgroundColor: AppColors.cardFill,
+              side: const BorderSide(color: AppColors.cardStroke),
               shape: const StadiumBorder(),
               onSelected: (on) => setState(() => _setType = on ? t : null),
             ),
@@ -603,7 +604,7 @@ class _SetEditorState extends State<_SetEditor> {
           (
             const Key('copySetId'),
             _idCopied ? 'ID Copied' : 'Copy Set ID',
-            stanceSecondaryButtonStyle(context, height: 48),
+            appButtonStyle(context, style: AppButtonStyle.secondary, height: 48, radius: 8),
             () async {
               await Clipboard.setData(ClipboardData(text: _set.id));
               if (mounted) setState(() => _idCopied = true);
@@ -612,7 +613,7 @@ class _SetEditorState extends State<_SetEditor> {
           (
             const Key('reportIssue'),
             'Report Issue',
-            stanceButtonStyle(context, height: 48),
+            appButtonStyle(context, height: 48, radius: 8),
             () async {
               final updated = await widget.onReportIssue(_set);
               if (mounted) setState(() => _set = updated);
@@ -621,7 +622,7 @@ class _SetEditorState extends State<_SetEditor> {
           (
             const Key('deleteSet'),
             'Delete Set',
-            stanceButtonStyle(context, height: 48, background: StanceColors.error),
+            appButtonStyle(context, height: 48, style: AppButtonStyle.warning, radius: 8),
             _delete,
           ),
         ])
@@ -648,14 +649,14 @@ class _SetEditorState extends State<_SetEditor> {
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.timer_outlined, size: 14, color: StanceExtraColors.purple1),
+            const Icon(Icons.timer_outlined, size: 14, color: AppColors.purple1),
             const SizedBox(width: 4),
             Text(
                 left == Duration.zero
                     ? 'Edit Expired'
                     : '${formatTimeLeft(left)} left to edit',
                 style: theme.textTheme.labelSmall
-                    ?.copyWith(color: StanceExtraColors.purple1)),
+                    ?.copyWith(color: AppColors.purple1)),
           ]),
         ),
       ),
@@ -666,7 +667,7 @@ class _SetEditorState extends State<_SetEditor> {
       ),
       Container(
         padding: const EdgeInsets.all(16),
-        decoration: stanceCard(),
+        decoration: appCard(),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             Expanded(child: Text('Total reps', style: theme.textTheme.bodyLarge)),
@@ -695,7 +696,7 @@ class _SetEditorState extends State<_SetEditor> {
           if (_busy) const LinearProgressIndicator(),
           FilledButton(
             key: const Key('recalculate'),
-            style: stanceButtonStyle(context),
+            style: appButtonStyle(context, radius: 8, height: 40),
             onPressed: _busy || desired == null || desired == current ? null : _recalculate,
             child: const Text('Recalculate'),
           ),
@@ -704,7 +705,7 @@ class _SetEditorState extends State<_SetEditor> {
       const SizedBox(height: 16),
       FilledButton(
         key: const Key('checkReps'),
-        style: stanceSecondaryButtonStyle(context, height: 48),
+        style: appButtonStyle(context, style: AppButtonStyle.secondary, height: 48, radius: 8),
         onPressed: _busy ? null : _checkReps,
         child: const Text('Check Reps'),
       ),
@@ -753,9 +754,9 @@ class _ReportIssueState extends State<_ReportIssue> {
     final hasNote = widget.note != null;
     final bold = theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600);
     ButtonStyle choice(bool selected) => selected
-        ? stanceButtonStyle(context, radius: 8, height: 40)
-        : stanceSecondaryButtonStyle(context, radius: 8, height: 40);
-    final big = stanceButtonStyle(context, radius: 8, height: 48);
+        ? appButtonStyle(context, radius: 8, height: 40)
+        : appButtonStyle(context, style: AppButtonStyle.secondary, radius: 8, height: 40);
+    final big = appButtonStyle(context, radius: 8, height: 48);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       // Stance's `ReportIssueSheet`: a small Done button, the 40 sp bold
       // title, then sections 20 dp apart.
@@ -764,7 +765,7 @@ class _ReportIssueState extends State<_ReportIssue> {
         child: SizedBox(
           width: 88,
           child: FilledButton(
-              style: stanceSecondaryButtonStyle(context),
+              style: appButtonStyle(context, style: AppButtonStyle.secondary, radius: 8, height: 40),
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Done')),
         ),
@@ -775,7 +776,7 @@ class _ReportIssueState extends State<_ReportIssue> {
       const SizedBox(height: 20),
       Text('Feedback', style: bold),
       Text('Does the data look correct?',
-          style: bold?.copyWith(color: StanceColors.subtitleGray)),
+          style: bold?.copyWith(color: AppColors.subtitleGray)),
       const SizedBox(height: 12),
       Row(children: [
         SizedBox(
@@ -811,7 +812,7 @@ class _ReportIssueState extends State<_ReportIssue> {
         maxLines: 6,
         textCapitalization: TextCapitalization.sentences,
         style: theme.textTheme.bodyLarge,
-        cursorColor: StanceColors.primary,
+        cursorColor: AppColors.primary,
         decoration: InputDecoration(
           filled: true,
           // Stance's NoteFieldFill (#27252D), dimmed while disabled.

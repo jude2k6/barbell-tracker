@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../sensor/sensor_link.dart';
 import '../workout/sensor_controller.dart';
-import 'stance_theme.dart';
+import 'app_theme.dart';
 
 /// Stance's `SmallDeviceStatusButton`: a pill with a sensor glyph and a
 /// green (streaming) or red dot. Tap to open the device page via
@@ -59,8 +59,8 @@ class SensorStatusChip extends StatelessWidget {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: sensor.isStreaming
-                            ? StanceColors.connected
-                            : StanceColors.disconnected,
+                            ? AppColors.connected
+                            : AppColors.disconnected,
                       ),
                     ),
                   ]),

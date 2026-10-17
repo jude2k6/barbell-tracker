@@ -4,10 +4,11 @@ import '../workout/load_velocity.dart';
 import '../workout/session.dart';
 import '../workout/session_comparison.dart';
 import '../workout/set_metrics.dart';
+import 'app_theme.dart';
+import 'app_widgets.dart';
 import 'charts/rep_velocity_chart.dart';
 import 'charts/rpe_profile_chart.dart';
 import 'format.dart';
-import 'stance_theme.dart';
 
 /// Views of Stance's session comparison (notes §15).
 enum ComparisonView {
@@ -17,210 +18,6 @@ enum ComparisonView {
 
   const ComparisonView(this.label);
   final String label;
-}
-
-// Stance design-system pieces the feedback screens share. They belong
-// with stance_theme.dart / stance_widgets.dart and live here only until
-// those files can take them.
-
-/// `StanceColorTokens` not (yet) in [StanceColors].
-abstract final class StanceExtraColors {
-  static const pink = Color(0xFFF415C3);
-  static const purple1 = Color(0xFF915EEB);
-  static const purple2 = Color(0xFF782EFD);
-  static const fourgroundSolid = Color(0xFF201B28);
-
-  /// `cardStroke`: white at 12 %.
-  static const cardStroke = Color(0x1FFFFFFF);
-
-  /// Compose's `Color.Gray`, which Stance uses for secondary labels.
-  static const gray = Color(0xFF888888);
-}
-
-/// Stance's `stanceCard` modifier: white 4 % fill, 1 dp white 12 % stroke,
-/// [radius] 20 dp by default.
-BoxDecoration stanceCard({double radius = 20}) => BoxDecoration(
-      color: StanceColors.cardFill,
-      borderRadius: BorderRadius.circular(radius),
-      border: Border.all(color: StanceExtraColors.cardStroke),
-    );
-
-/// Stance's `StanceButton` (Primary): Primary fill, [radius] corners, a
-/// fixed [height] and bodyLarge semibold white text. Kept a FilledButton
-/// style so disabled states and tests work as before.
-ButtonStyle stanceButtonStyle(BuildContext context,
-        {double radius = 8, double height = 40, Color? background}) =>
-    FilledButton.styleFrom(
-      backgroundColor: background ?? StanceColors.primary,
-      foregroundColor: Colors.white,
-      disabledBackgroundColor: const Color(0x33792EFF),
-      disabledForegroundColor: StanceExtraColors.gray,
-      minimumSize: Size.fromHeight(height),
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
-      textStyle: Theme.of(context)
-          .textTheme
-          .bodyLarge
-          ?.copyWith(fontWeight: FontWeight.w600),
-    );
-
-/// Stance's `StanceButton` (Secondary): white 6 % fill, Primary text.
-ButtonStyle stanceSecondaryButtonStyle(BuildContext context,
-        {double radius = 8, double height = 40}) =>
-    stanceButtonStyle(context,
-            radius: radius, height: height, background: const Color(0x0FFFFFFF))
-        .copyWith(foregroundColor: const WidgetStatePropertyAll(StanceColors.primary));
-
-/// Stance's `StanceSmallButton`: a 32 dp pill, Primary fill (or Primary
-/// 10 % with a 2 dp Primary border when [secondary]), 12/6 dp padding.
-ButtonStyle stanceSmallButtonStyle(BuildContext context, {bool secondary = false}) =>
-    FilledButton.styleFrom(
-      backgroundColor: secondary ? const Color(0x1A792EFF) : StanceColors.primary,
-      foregroundColor: Colors.white,
-      disabledBackgroundColor: const Color(0x1A792EFF),
-      minimumSize: const Size(0, 32),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      shape: const StadiumBorder(),
-      side: secondary ? const BorderSide(color: StanceColors.primary, width: 2) : null,
-      textStyle: Theme.of(context)
-          .textTheme
-          .bodyMedium
-          ?.copyWith(fontWeight: FontWeight.w600),
-    );
-
-/// Stance's `ExtraSmallPillButton`: Purple2 20 % pill, Purple1 labelSmall
-/// bold text and a 12 dp forward arrow.
-class ExtraSmallPillButton extends StatelessWidget {
-  const ExtraSmallPillButton(this.text, {super.key, required this.onPressed});
-
-  final String text;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => Material(
-        color: const Color(0x33782EFD),
-        shape: const StadiumBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onPressed,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(text,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: StanceExtraColors.purple1, fontWeight: FontWeight.w700)),
-              const SizedBox(width: 2),
-              const Icon(Icons.arrow_forward, size: 12, color: StanceExtraColors.purple1),
-            ]),
-          ),
-        ),
-      );
-}
-
-/// Stance's `StanceMenuPicker`: the current value in bodyMedium semibold
-/// with a 16 dp chevron, in an 8 dp rounded box with a 1 dp gray 50 %
-/// border; tapping opens a menu of [values].
-class StanceMenuPicker<T> extends StatelessWidget {
-  const StanceMenuPicker({
-    super.key,
-    required this.value,
-    required this.values,
-    required this.label,
-    required this.onChanged,
-  });
-
-  final T value;
-  final List<T> values;
-  final String Function(T) label;
-  final ValueChanged<T> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = Theme.of(context)
-        .textTheme
-        .bodyMedium
-        ?.copyWith(fontWeight: FontWeight.w600, color: Colors.white);
-    return PopupMenuButton<int>(
-      tooltip: '',
-      onSelected: (i) => onChanged(values[i]),
-      itemBuilder: (_) => [
-        for (final (i, v) in values.indexed)
-          PopupMenuItem(value: i, child: Text(label(v))),
-      ],
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0x80888888)),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Flexible(
-            child: Text(label(value),
-                style: style, maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-          const SizedBox(width: 6),
-          const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.white),
-        ]),
-      ),
-    );
-  }
-}
-
-/// Stance's `StanceSegmentedTabs`: a 32 dp white 6 % track with 28 dp
-/// tabs; the selected one is white 16 %, its label semibold white, the
-/// others medium white 70 %.
-class StanceSegmentedTabs<T> extends StatelessWidget {
-  const StanceSegmentedTabs({
-    super.key,
-    required this.values,
-    required this.selected,
-    required this.label,
-    required this.onSelect,
-    this.keys = const {},
-  });
-
-  final List<T> values;
-  final T selected;
-  final String Function(T) label;
-  final ValueChanged<T> onSelect;
-
-  /// Optional keys for the tab labels (for tests).
-  final Map<T, Key> keys;
-
-  @override
-  Widget build(BuildContext context) {
-    final body = Theme.of(context).textTheme.bodyMedium;
-    return Container(
-      height: 32,
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-          color: const Color(0x0FFFFFFF), borderRadius: BorderRadius.circular(8)),
-      child: Row(children: [
-        for (final v in values)
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => onSelect(v),
-              child: Container(
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: v == selected ? const Color(0x29FFFFFF) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  label(v),
-                  key: keys[v],
-                  style: body?.copyWith(
-                    fontWeight: v == selected ? FontWeight.w600 : FontWeight.w500,
-                    color: v == selected ? Colors.white : const Color(0xB3FFFFFF),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ]),
-    );
-  }
 }
 
 /// Stance's RPE value in a [color] at 10 % chip (comparison table cell).
@@ -263,7 +60,7 @@ class ComparisonTableHeaders extends StatelessWidget {
     final style = Theme.of(context)
         .textTheme
         .labelSmall
-        ?.copyWith(color: StanceExtraColors.gray, fontWeight: FontWeight.w700);
+        ?.copyWith(color: AppColors.gray, fontWeight: FontWeight.w700);
     final labels = ['Weight (${unit.name})', 'Reps', 'Type', 'RPE', 'Speed (m/s)'];
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -359,7 +156,7 @@ class RepSpeedRow extends StatelessWidget {
     final bounds = repSpeedBounds(session.sets);
     final label = theme.textTheme.labelSmall;
     final axis = label?.copyWith(
-        color: StanceColors.subtitleGray, fontWeight: FontWeight.w500);
+        color: AppColors.subtitleGray, fontWeight: FontWeight.w500);
     final (lo, hi) = bounds;
     return SizedBox(
       height: 250,
@@ -414,7 +211,7 @@ class RepSpeedRow extends StatelessWidget {
                         ),
                         Text(fmtTime(set.startedAt),
                             style: label?.copyWith(
-                                color: StanceColors.subtitleGray,
+                                color: AppColors.subtitleGray,
                                 fontWeight: FontWeight.w700)),
                       ],
                     ),
@@ -472,10 +269,10 @@ class _SetRepChartState extends State<SetRepChart> {
           child: Row(children: [
             Text('Compare',
                 style: theme.textTheme.bodyLarge
-                    ?.copyWith(color: StanceColors.subtitleGray)),
+                    ?.copyWith(color: AppColors.subtitleGray)),
             const SizedBox(width: 8),
             Flexible(
-              child: StanceMenuPicker<int?>(
+              child: AppMenuPicker<int?>(
                 key: const Key('compareSetPicker'),
                 value: compare == null ? null : _compare,
                 values: [null, ...options],
@@ -521,10 +318,10 @@ class _SpeedStat extends StatelessWidget {
       decoration: BoxDecoration(
           color: detailPanelFill, borderRadius: BorderRadius.circular(8)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: body?.copyWith(color: StanceColors.subtitleGray)),
+        Text(label, style: body?.copyWith(color: AppColors.subtitleGray)),
         const SizedBox(height: 4),
         Row(children: [
-          const Icon(Icons.speed_outlined, size: 20, color: StanceColors.subtitleGray),
+          const Icon(Icons.speed_outlined, size: 20, color: AppColors.subtitleGray),
           const SizedBox(width: 6),
           Text(value, style: body.tabular),
         ]),

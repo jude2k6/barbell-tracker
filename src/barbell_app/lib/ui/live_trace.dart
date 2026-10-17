@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../workout/sensor_controller.dart';
-import 'stance_theme.dart';
+import 'app_theme.dart';
 import 'trace_painter.dart';
 
 /// Live vertical-acceleration trace from the shared sensor, on a Stance
@@ -25,7 +25,7 @@ class LiveTrace extends StatelessWidget {
       height: height,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: StanceColors.cardFill,
+        color: AppColors.cardFill,
         borderRadius: BorderRadius.circular(16),
       ),
       child: RepaintBoundary(
@@ -34,7 +34,7 @@ class LiveTrace extends StatelessWidget {
             values: sensor.traceSnapshot,
             repaint: sensor.traceTick,
             range: 2,
-            color: color ?? StanceColors.primaryLight,
+            color: color ?? AppColors.primaryLight,
             gridColor: const Color(0x1AFFFFFF),
           ),
           child: const SizedBox.expand(),

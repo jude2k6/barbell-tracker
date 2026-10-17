@@ -10,8 +10,8 @@ import '../workout/file_log.dart';
 import '../workout/recording_import.dart';
 import '../workout/session.dart';
 import 'app_scope.dart';
+import 'app_theme.dart';
 import 'format.dart';
-import 'stance_theme.dart';
 import 'workout_flow.dart';
 
 /// A picked file: its name and its text.
@@ -95,14 +95,14 @@ class _RecordingImportCardState extends State<RecordingImportCard> {
     final theme = Theme.of(context);
     final last = _state.lastImported;
     final subtitle = theme.textTheme.bodySmall?.copyWith(
-      color: StanceColors.subtitleGray,
+      color: AppColors.subtitleGray,
     );
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         // Home's import item: a 16 dp card at 4 % white, like the catalogue rows.
         Material(
-          color: StanceColors.cardFill,
+          color: AppColors.cardFill,
           borderRadius: BorderRadius.circular(16),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -115,7 +115,7 @@ class _RecordingImportCardState extends State<RecordingImportCard> {
                     ? const SizedBox.square(
                         dimension: 24,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: StanceColors.primary))
+                            strokeWidth: 2, color: AppColors.primary))
                     : const Icon(Icons.file_open_outlined),
                 const SizedBox(width: 16),
                 Expanded(
@@ -153,7 +153,7 @@ class _RecordingImportCardState extends State<RecordingImportCard> {
             padding: const EdgeInsets.only(top: 8),
             child: Material(
               key: const Key('lastImported'),
-              color: StanceColors.cardFill,
+              color: AppColors.cardFill,
               borderRadius: BorderRadius.circular(12),
               clipBehavior: Clip.antiAlias,
               child: InkWell(
@@ -177,7 +177,7 @@ class _RecordingImportCardState extends State<RecordingImportCard> {
                               const SizedBox(height: 4),
                               Text('Tap to open Sessions for this exercise',
                                   style: theme.textTheme.labelSmall?.copyWith(
-                                      color: StanceColors.subtitleGray)),
+                                      color: AppColors.subtitleGray)),
                             ],
                           ),
                         ),
@@ -217,9 +217,6 @@ Future<void> shareImuCsv(String path) async {
     title: 'Share IMU recording',
   ));
 }
-
-/// `StanceAlertDefaults.cardColor`.
-const _alertCard = Color(0xFF201B28);
 
 class _ImportDetails {
   const _ImportDetails(this.exercise, this.weight, this.unit);
@@ -266,7 +263,7 @@ class _ImportDetailsDialogState extends State<_ImportDetailsDialog> {
     // Stance's `StanceAlertDialog`: a 300 dp card, 12 dp radius, 16 dp
     // padding, bold titleMedium, subtitle-gray message and fill-width actions.
     return Dialog(
-      backgroundColor: _alertCard,
+      backgroundColor: AppColors.fourgroundSolid,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SizedBox(
         width: 300,
@@ -297,7 +294,7 @@ class _ImportDetailsDialogState extends State<_ImportDetailsDialog> {
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(widget.fileName,
                     style: theme.textTheme.bodyMedium
-                        ?.copyWith(color: StanceColors.subtitleGray)),
+                        ?.copyWith(color: AppColors.subtitleGray)),
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<Exercise>(
@@ -337,7 +334,7 @@ class _ImportDetailsDialogState extends State<_ImportDetailsDialog> {
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: Text('Cancel',
-                    style: const TextStyle(color: StanceColors.subtitleGray)),
+                    style: const TextStyle(color: AppColors.subtitleGray)),
               ),
             ],
           ),

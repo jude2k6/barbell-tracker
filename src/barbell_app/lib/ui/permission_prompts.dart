@@ -3,7 +3,8 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 
 import '../permissions/permission_service.dart';
-import 'stance_theme.dart';
+import 'app_theme.dart';
+import 'app_widgets.dart';
 
 /// Make sure [capability] is usable, explaining and prompting as needed.
 ///
@@ -127,7 +128,7 @@ Future<bool> ensureLocationServices(
   if (!service.readiness.locationServicesOff || !context.mounted) return true;
   final result = await showDialog<bool>(
     context: context,
-    barrierColor: StanceAlert.scrim,
+    barrierColor: AppAlert.scrim,
     builder: (context) =>
         _LocationOffDialog(service: service, continueAnyway: continueAnyway),
   );
@@ -153,7 +154,7 @@ class _LocationOffDialog extends StatelessWidget {
           if (context.mounted) Navigator.of(context).pop(true);
         });
       }
-      return StanceAlert(
+      return AppAlert(
         key: const Key('locationOffDialog'),
         title: 'Location is off',
         message:
@@ -175,8 +176,8 @@ Future<bool?> _dialog(
   String? action,
 }) => showDialog<bool>(
   context: context,
-  barrierColor: StanceAlert.scrim,
-  builder: (context) => StanceAlert(
+  barrierColor: AppAlert.scrim,
+  builder: (context) => AppAlert(
     title: title,
     message: body,
     actionText: action ?? 'OK',
@@ -230,7 +231,7 @@ class BluetoothAccessBanner extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
             child: Row(
               children: [
-                const Icon(Icons.bluetooth_disabled, color: StanceColors.error),
+                const Icon(Icons.bluetooth_disabled, color: AppColors.error),
                 const SizedBox(width: 12),
                 Expanded(child: Text(text)),
                 if (button != null)
@@ -248,173 +249,3 @@ class BluetoothAccessBanner extends StatelessWidget {
   );
 }
 
-enum StanceButtonStyle { primary, secondary, idle }
-
-/// Stance's `StanceButton`: 42 dp tall, 16 dp radius, bodyLarge semibold
-/// label. Primary is filled, secondary a 2 dp primary outline, idle white at
-/// 6 %. A null [onPressed] shows the idle look and ignores taps.
-class StanceButton extends StatelessWidget {
-  const StanceButton({
-    super.key,
-    required this.text,
-    this.onPressed,
-    this.style = StanceButtonStyle.primary,
-    this.height = 42,
-  });
-
-  final String text;
-  final VoidCallback? onPressed;
-  final StanceButtonStyle style;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    final look = onPressed == null && style == StanceButtonStyle.primary
-        ? StanceButtonStyle.idle
-        : style;
-    final (fill, textColor) = switch (look) {
-      StanceButtonStyle.primary => (StanceColors.primary, Colors.white),
-      StanceButtonStyle.secondary => (Colors.transparent, StanceColors.primary),
-      StanceButtonStyle.idle => (const Color(0x0FFFFFFF), Colors.grey),
-    };
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-      side: look == StanceButtonStyle.secondary
-          ? const BorderSide(color: StanceColors.primary, width: 2)
-          : BorderSide.none,
-    );
-    return Material(
-      color: fill,
-      shape: shape,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onPressed,
-        child: Container(
-          height: height,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          alignment: Alignment.center,
-          child: Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge
-                ?.copyWith(fontWeight: FontWeight.w600, color: textColor),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Stance's `StanceAlertDialog` with `StanceAlertDefaults`: a 300 dp card
-/// (12 dp radius, `0xFF201B28`) with a bold title and close button, a grey
-/// message, a full-width primary button and an optional text dismiss.
-/// Show it with `barrierColor: StanceAlert.scrim`.
-class StanceAlert extends StatelessWidget {
-  const StanceAlert({
-    super.key,
-    required this.title,
-    this.message,
-    this.content,
-    this.actionText,
-    this.onAction,
-    this.dismissText,
-    this.onDismiss,
-    this.onClose,
-  });
-
-  /// Black at 20 %.
-  static const scrim = Color(0x33000000);
-
-  final String title;
-
-  /// The grey message, or [content] in its place (e.g. a countdown).
-  final String? message;
-  final Widget? content;
-
-  /// The primary button; omitted when null.
-  final String? actionText;
-  final VoidCallback? onAction;
-  final String? dismissText;
-  final VoidCallback? onDismiss;
-
-  /// The close X; defaults to [onDismiss], and is hidden if both are null.
-  final VoidCallback? onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    final close = onClose ?? onDismiss;
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Center(
-        child: Container(
-          width: 300,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF201B28),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 8,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: text.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  if (close != null)
-                    SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        tooltip: 'Close',
-                        icon: const Icon(Icons.close, size: 18),
-                        onPressed: close,
-                      ),
-                    ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child:
-                    content ??
-                    Text(
-                      message ?? '',
-                      style: text.bodyMedium?.copyWith(
-                        color: StanceColors.subtitleGray,
-                      ),
-                    ),
-              ),
-              if (actionText != null)
-                StanceButton(text: actionText!, onPressed: onAction),
-              if (dismissText != null)
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton(
-                    onPressed: onDismiss,
-                    child: Text(
-                      dismissText!,
-                      style: text.bodyMedium?.copyWith(
-                        color: StanceColors.subtitleGray,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

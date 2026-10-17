@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../workout/session_tags.dart';
-import 'stance_theme.dart';
+import 'app_theme.dart';
 
 const _sheetColor = Color(0xFF1C1C1E);
 
@@ -73,7 +73,7 @@ class _SessionTagEditorState extends State<SessionTagEditor> {
             'Add tags to compare what matters to you. '
             'Tap to select or deselect.',
             style: theme.textTheme.bodyMedium
-                ?.copyWith(color: StanceColors.subtitleGray),
+                ?.copyWith(color: AppColors.subtitleGray),
           ),
         ),
         _section('Block', blockTags(_blockCount),
@@ -102,7 +102,7 @@ class _SessionTagEditorState extends State<SessionTagEditor> {
             key: ValueKey('tag-$tag'),
             label: tag,
             fill: _tags.contains(tag)
-                ? StanceColors.primary.withValues(alpha: 0.35)
+                ? AppColors.primary.withValues(alpha: 0.35)
                 : Colors.white.withValues(alpha: 0.08),
             color: Colors.white,
             onTap: () => _toggle(tag),
@@ -112,7 +112,7 @@ class _SessionTagEditorState extends State<SessionTagEditor> {
             key: ValueKey('tagMore-$title'),
             label: 'more…',
             fill: Colors.white.withValues(alpha: 0.12),
-            color: StanceColors.subtitleGray,
+            color: AppColors.subtitleGray,
             onTap: onMore,
           ),
       ]),

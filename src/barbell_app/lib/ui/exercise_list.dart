@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../analysis/exercises.dart';
-import 'stance_theme.dart';
+import 'app_theme.dart';
 
 /// Stance's Home catalogue: the root lists the three groups; a group
 /// lists its exercises, with [DeadliftTipsCard] after the deadlift ones.
@@ -63,7 +63,7 @@ class ExerciseCatalogRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Material(
-      color: StanceColors.cardFill,
+      color: AppColors.cardFill,
       borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -150,7 +150,7 @@ class DeadliftTipsCard extends StatelessWidget {
       key: const Key('deadliftTips'),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: StanceColors.secondary.withValues(alpha: 0.2),
+        color: AppColors.secondary.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

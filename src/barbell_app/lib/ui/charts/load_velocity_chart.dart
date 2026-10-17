@@ -3,9 +3,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../workout/load_velocity.dart';
+import '../app_theme.dart';
 import '../format.dart';
-import '../stance_theme.dart';
-import 'rep_velocity_chart.dart' show stancePx;
+import 'rep_velocity_chart.dart' show pxToDp;
 
 /// Weight (x) against set velocity (y), one dot per set, joined in weight
 /// order. An optional comparison session is drawn as a second series.
@@ -39,13 +39,13 @@ class LoadVelocityChart extends StatelessWidget {
       selectedSetIndex: selectedSetIndex,
       // Stance: current session Primary, comparison SecondaryPrime, white
       // 10 % grid, 11 sp gray labels.
-      color: StanceColors.primary,
-      comparisonColor: StanceColors.secondaryPrime,
+      color: AppColors.primary,
+      comparisonColor: AppColors.secondaryPrime,
       gridColor: const Color(0x1AFFFFFF),
       labelStyle: const TextStyle(
         fontFamily: 'Poppins',
         fontSize: 11,
-        color: Color(0xFF888888),
+        color: AppColors.gray,
         fontFeatures: tabularFigures,
       ),
     );
@@ -130,7 +130,7 @@ class LoadVelocityPainter extends CustomPainter {
 
     final grid = Paint()
       ..color = gridColor
-      ..strokeWidth = stancePx(1);
+      ..strokeWidth = pxToDp(1);
     for (final v in niceTicks(b.minVelocity, b.maxVelocity, 5)) {
       final y = _at(plot, b.minWeight, v).dy;
       if (y < plot.top - 0.5 || y > plot.bottom + 0.5) continue;
@@ -161,15 +161,15 @@ class LoadVelocityPainter extends CustomPainter {
       final o = _at(plot, sel.weight, sel.velocity);
       final cross = Paint()
         ..color = color.withValues(alpha: 0.6)
-        ..strokeWidth = stancePx(2);
+        ..strokeWidth = pxToDp(2);
       _dashed(canvas, Offset(o.dx, plot.top), Offset(o.dx, plot.bottom), cross,
           dash: 8, gap: 6);
       _dashed(canvas, Offset(plot.left, o.dy), Offset(plot.right, o.dy), cross,
           dash: 8, gap: 6);
       canvas.drawCircle(
-          o, stancePx(24), Paint()..color = color.withValues(alpha: 0.35));
-      canvas.drawCircle(o, stancePx(12), Paint()..color = Colors.white);
-      canvas.drawCircle(o, stancePx(9), Paint()..color = color);
+          o, pxToDp(24), Paint()..color = color.withValues(alpha: 0.35));
+      canvas.drawCircle(o, pxToDp(12), Paint()..color = Colors.white);
+      canvas.drawCircle(o, pxToDp(9), Paint()..color = color);
       // Stance's value tags: Primary 20 % boxes with 6 px corners.
       final style = labelStyle.copyWith(color: Colors.white);
       _text(canvas, sel.velocity.toStringAsFixed(2),
@@ -194,15 +194,15 @@ class LoadVelocityPainter extends CustomPainter {
         Paint()
           ..color = c
           ..style = PaintingStyle.stroke
-          ..strokeWidth = stancePx(3)
+          ..strokeWidth = pxToDp(3)
           ..strokeJoin = StrokeJoin.round,
       );
     }
     for (final p in pts) {
       if (p.setIndex == skip) continue;
       final o = _at(plot, p.weight, p.velocity);
-      canvas.drawCircle(o, stancePx(20), Paint()..color = c.withValues(alpha: 0.35));
-      canvas.drawCircle(o, stancePx(9), Paint()..color = c);
+      canvas.drawCircle(o, pxToDp(20), Paint()..color = c.withValues(alpha: 0.35));
+      canvas.drawCircle(o, pxToDp(9), Paint()..color = c);
     }
   }
 
@@ -233,8 +233,8 @@ class LoadVelocityPainter extends CustomPainter {
     if (box != null) {
       canvas.drawRRect(
           RRect.fromRectAndRadius(
-              (topLeft & tp.size).inflate(stancePx(4)),
-              Radius.circular(stancePx(6))),
+              (topLeft & tp.size).inflate(pxToDp(4)),
+              Radius.circular(pxToDp(6))),
           Paint()..color = box);
     }
     tp.paint(canvas, topLeft);

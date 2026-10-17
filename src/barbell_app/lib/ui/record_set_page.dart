@@ -17,19 +17,17 @@ import '../workout/analysis_runner.dart';
 import '../workout/file_log.dart';
 import '../workout/ids.dart';
 import '../workout/preferences.dart';
-import '../workout/sensor_controller.dart';
 import '../workout/session.dart';
 import '../workout/session_recorder.dart';
 import '../workout/set_log.dart';
 import '../workout/signal_quality.dart';
 import 'app_scope.dart';
+import 'app_theme.dart';
+import 'app_widgets.dart';
 import 'format.dart';
 import 'guides.dart';
 import 'live_trace.dart';
 import 'permission_prompts.dart';
-import 'sensor_status_chip.dart';
-import 'stance_theme.dart';
-import 'stance_widgets.dart';
 import 'video_settings_sheet.dart';
 import 'workout_flow.dart';
 
@@ -323,7 +321,7 @@ class _RecordSetPageState extends State<RecordSetPage> {
     final theme = Theme.of(context);
     final sensor = _app.sensor;
     final idle = _phase == _Phase.idle;
-    final gray = StanceColors.subtitleGray;
+    final gray = AppColors.subtitleGray;
 
     return PopScope(
       canPop: _phase != _Phase.recording,
@@ -339,14 +337,16 @@ class _RecordSetPageState extends State<RecordSetPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _WorkoutTopBar(
+                      WorkoutTopBar(
                         sensor: sensor,
-                        enabled: idle,
-                        trailing: _GuideHeaderButton(
-                          key: const Key('setupGuide'),
-                          label: 'Setup Guide',
-                          onPressed: idle ? _showSetupGuide : null,
-                        ),
+                        deviceEnabled: idle,
+                        actions: [
+                          GuideHeaderButton(
+                            key: const Key('setupGuide'),
+                            label: 'Setup Guide',
+                            onPressed: idle ? _showSetupGuide : null,
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 20),
                       Column(
@@ -405,7 +405,7 @@ class _RecordSetPageState extends State<RecordSetPage> {
                       ] else if (_phase == _Phase.recording) ...[
                         // Own addition: the live trace above Stance's
                         // progress bar and seconds.
-                        LiveTrace(sensor: sensor, height: 120, color: StanceColors.error),
+                        LiveTrace(sensor: sensor, height: 120, color: AppColors.error),
                         const SizedBox(height: 8),
                         const LinearProgressIndicator(),
                         const SizedBox(height: 8),
@@ -431,8 +431,8 @@ class _RecordSetPageState extends State<RecordSetPage> {
                         const SizedBox(height: 8),
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8),
-                          child: _StanceButton(
-                            label: 'Device',
+                          child: AppButton(
+                            text: 'Device',
                             height: 50,
                             onPressed: () => openDevice(context),
                           ),
@@ -440,9 +440,9 @@ class _RecordSetPageState extends State<RecordSetPage> {
                       ],
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4),
-                        child: _StanceButton(
+                        child: AppButton(
                           key: const Key('recordButton'),
-                          label: switch (_phase) {
+                          text: switch (_phase) {
                             _Phase.idle => 'Start Set',
                             _Phase.recording => 'Stop',
                             _Phase.analysing => 'Please wait…',
@@ -565,7 +565,7 @@ class _AnalysisCountdown extends StatelessWidget {
     final theme = Theme.of(context);
     final left = total - elapsed;
     final overdue = left <= Duration.zero;
-    final note = theme.textTheme.labelMedium?.copyWith(color: StanceColors.subtitleGray);
+    final note = theme.textTheme.labelMedium?.copyWith(color: AppColors.subtitleGray);
     return Container(
       key: const Key('analysisCountdown'),
       padding: const EdgeInsets.all(16),
@@ -588,7 +588,7 @@ class _AnalysisCountdown extends StatelessWidget {
           borderRadius: BorderRadius.circular(5),
           child: LinearProgressIndicator(
             minHeight: 10,
-            color: StanceColors.primary,
+            color: AppColors.primary,
             backgroundColor: const Color(0x33FFFFFF),
             value: overdue ? null : elapsed.inMilliseconds / total.inMilliseconds,
           ),
@@ -611,9 +611,9 @@ class SignalQualityBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final color = switch (quality.rating) {
-      SignalRating.good => StanceColors.success,
-      SignalRating.fair => StanceColors.amber,
-      SignalRating.poor => StanceColors.error,
+      SignalRating.good => AppColors.success,
+      SignalRating.fair => AppColors.amber,
+      SignalRating.poor => AppColors.error,
     };
     return Material(
       key: const Key('signalQualityBadge'),
@@ -629,122 +629,6 @@ class SignalQualityBadge extends StatelessWidget {
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
         ]),
       ),
-    );
-  }
-}
-
-/// Stance's `WorkoutTopBar`: a 44 dp row with the back button, then
-/// [trailing] and the device status on the right. (The page supplies the
-/// 18 dp side inset.)
-class _WorkoutTopBar extends StatelessWidget {
-  const _WorkoutTopBar(
-      {required this.sensor, required this.enabled, required this.trailing});
-
-  final SensorController sensor;
-
-  /// Device status opens the device page only while idle.
-  final bool enabled;
-  final Widget trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44,
-      child: Row(children: [
-        CircleIconButton(
-          key: const Key('workoutBack'),
-          icon: Icons.arrow_back,
-          tooltip: 'Back',
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        const Spacer(),
-        trailing,
-        const SizedBox(width: 8),
-        SensorStatusChip(
-            sensor: sensor, onPressed: enabled ? () => openDevice(context) : null),
-      ]),
-    );
-  }
-}
-
-/// Stance's `GuideHeaderButton`: a 32 dp pill with a 2 dp pink-to-purple
-/// (70 %) gradient outline, an icon and 14 sp semibold text; half opacity
-/// while disabled. Stance's icon is its `stance_ai` vector drawable; a
-/// Material sparkle stands in.
-class _GuideHeaderButton extends StatelessWidget {
-  const _GuideHeaderButton({super.key, required this.label, this.onPressed});
-
-  final String label;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: onPressed == null ? 0.5 : 1,
-      child: Tooltip(
-        message: label,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            height: 32,
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: const LinearGradient(
-                  colors: [Color(0xB3F415C3), Color(0xB3792EFF)]),
-            ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: StanceColors.background,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.auto_awesome, size: 20, color: Color(0xFFF415C3)),
-                const SizedBox(width: 4),
-                Text(label,
-                    style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white)),
-              ]),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Stance's `StanceButton` (Primary, or Idle while disabled): white
-/// bodyLarge semibold on the primary colour, 16 dp corners.
-class _StanceButton extends StatelessWidget {
-  const _StanceButton(
-      {super.key, required this.label, required this.onPressed, this.height = 42});
-
-  final String label;
-  final VoidCallback? onPressed;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton(
-      style: FilledButton.styleFrom(
-        minimumSize: Size.fromHeight(height),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        backgroundColor: StanceColors.primary,
-        foregroundColor: Colors.white,
-        disabledBackgroundColor: const Color(0x0FFFFFFF),
-        disabledForegroundColor: const Color(0xFF888888),
-        textStyle: Theme.of(context)
-            .textTheme
-            .bodyLarge
-            ?.copyWith(fontWeight: FontWeight.w600),
-      ),
-      onPressed: onPressed,
-      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
     );
   }
 }

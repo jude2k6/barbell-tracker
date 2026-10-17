@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../workout/reprocess.dart';
-import 'comparison_views.dart';
-import 'stance_theme.dart';
+import 'app_theme.dart';
+import 'app_widgets.dart';
 
 /// Stance's `ReprocessBanner` (notes §24), on the feedback page's set sheet
 /// for a set that needs reprocessing: the message for [state], then
@@ -38,15 +38,15 @@ class ReprocessBanner extends StatelessWidget {
         Text(state.message, key: const Key('reprocessMessage'), style: text),
         if (detail != null) ...[
           const SizedBox(height: 4),
-          Text(detail!, style: text?.copyWith(color: StanceColors.subtitleGray)),
+          Text(detail!, style: text?.copyWith(color: AppColors.subtitleGray)),
         ],
         if (state.showsButton) ...[
           const SizedBox(height: 10),
           FilledButton(
             key: const Key('reprocessButton'),
-            style: stanceButtonStyle(context).copyWith(
+            style: appButtonStyle(context, radius: 8, height: 40).copyWith(
                 // Stance keeps the Primary fill while it runs.
-                backgroundColor: const WidgetStatePropertyAll(StanceColors.primary),
+                backgroundColor: const WidgetStatePropertyAll(AppColors.primary),
                 foregroundColor: const WidgetStatePropertyAll(Colors.white)),
             onPressed: state == ReprocessState.inProgress ? null : onReprocess,
             child: state == ReprocessState.inProgress

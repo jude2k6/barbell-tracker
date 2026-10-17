@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'permissions/permission_service.dart';
 import 'recording/recording.dart';
-import 'ui/app_scope.dart';
 import 'sensor/witmotion/witmotion_scan.dart';
+import 'ui/app_scope.dart';
+import 'ui/app_theme.dart';
 import 'ui/home_page.dart';
-import 'ui/stance_theme.dart';
 import 'video/video_settings.dart';
 import 'workout/file_log.dart';
 import 'workout/preferences.dart';
@@ -71,7 +71,7 @@ class _BarbellAppState extends State<BarbellApp> {
       child: MaterialApp(
         title: 'Barbell Tracker',
         // Stance is dark-only.
-        theme: stanceTheme(),
+        theme: appTheme(),
         home: const HomePage(),
       ),
     );

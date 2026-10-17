@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'app_theme.dart';
+import 'app_widgets.dart';
 import 'format.dart';
-import 'permission_prompts.dart';
-import 'stance_theme.dart';
 
 enum _Phase { instructions, countdown, calibrating, done, failed }
 
@@ -29,7 +29,7 @@ class CalibrationDialog extends StatefulWidget {
   ) => showDialog<void>(
     context: context,
     barrierDismissible: false,
-    barrierColor: StanceAlert.scrim,
+    barrierColor: AppAlert.scrim,
     builder: (_) => CalibrationDialog(onCalibrate: onCalibrate),
   );
 
@@ -85,7 +85,7 @@ class _CalibrationDialogState extends State<CalibrationDialog> {
     final busy = _phase == _Phase.countdown || _phase == _Phase.calibrating;
     void close() => Navigator.pop(context);
     final alert = switch (_phase) {
-      _Phase.instructions => StanceAlert(
+      _Phase.instructions => AppAlert(
         title: 'Calibration',
         message:
             'Place the WitMotion IMU on a flat, level surface and keep '
@@ -96,14 +96,14 @@ class _CalibrationDialogState extends State<CalibrationDialog> {
         dismissText: 'Cancel',
         onDismiss: close,
       ),
-      _Phase.countdown => StanceAlert(
+      _Phase.countdown => AppAlert(
         title: 'Calibration',
         content: Column(
           children: [
             Text(
               'Lay flat, keep still',
               style: text.bodyMedium?.copyWith(
-                color: StanceColors.subtitleGray,
+                color: AppColors.subtitleGray,
               ),
             ),
             const SizedBox(height: 8),
@@ -111,7 +111,7 @@ class _CalibrationDialogState extends State<CalibrationDialog> {
           ],
         ),
       ),
-      _Phase.calibrating => StanceAlert(
+      _Phase.calibrating => AppAlert(
         title: 'Calibration',
         content: Row(
           children: [
@@ -125,14 +125,14 @@ class _CalibrationDialogState extends State<CalibrationDialog> {
           ],
         ),
       ),
-      _Phase.done => StanceAlert(
+      _Phase.done => AppAlert(
         title: 'Calibration complete',
         message: 'IMU calibration finished successfully.',
         actionText: 'OK',
         onAction: close,
         onClose: close,
       ),
-      _Phase.failed => StanceAlert(
+      _Phase.failed => AppAlert(
         title: 'Calibration failed',
         message: '$_error',
         actionText: 'OK',

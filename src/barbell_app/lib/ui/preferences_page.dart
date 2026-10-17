@@ -4,7 +4,8 @@ import '../workout/preferences.dart';
 import '../workout/session.dart';
 import '../workout/user_profile.dart';
 import 'app_scope.dart';
-import 'stance_theme.dart';
+import 'app_theme.dart';
+import 'app_widgets.dart';
 
 /// Stance's `PreferencesScreen`: weight unit (used for weight input) and height
 /// unit. Like Stance, changes apply on Done; going back discards them.
@@ -65,10 +66,11 @@ class _PreferencesPageState extends State<PreferencesPage> {
                           ),
                         ),
                         const Spacer(),
-                        _SmallButton(
+                        AppSmallButton(
+                          'Done',
                           key: const Key('preferencesDone'),
-                          text: 'Done',
-                          onTap: _done,
+                          secondary: true,
+                          onPressed: _done,
                         ),
                       ],
                     ),
@@ -77,7 +79,7 @@ class _PreferencesPageState extends State<PreferencesPage> {
                       child: Text(
                         'Customize your app experience',
                         style: theme.textTheme.bodyLarge?.copyWith(
-                          color: _gray,
+                          color: AppColors.gray,
                         ),
                       ),
                     ),
@@ -108,9 +110,6 @@ class _PreferencesPageState extends State<PreferencesPage> {
     );
   }
 }
-
-/// Compose's `Color.Gray`, Stance's hint and subtitle colour.
-const _gray = Color(0xFF888888);
 
 /// Stance's `ProfileSectionCard`: black at 30 %, 16 dp radius and padding.
 class _SectionCard extends StatelessWidget {
@@ -177,7 +176,7 @@ class _UnitSection<T> extends StatelessWidget {
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               hint!,
-              style: theme.textTheme.bodySmall?.copyWith(color: _gray),
+              style: theme.textTheme.bodySmall?.copyWith(color: AppColors.gray),
             ),
           ),
       ],
@@ -200,7 +199,7 @@ class _UnitOptionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: StanceColors.cardFill,
+    color: AppColors.cardFill,
     borderRadius: BorderRadius.circular(12),
     clipBehavior: Clip.antiAlias,
     child: InkWell(
@@ -211,7 +210,7 @@ class _UnitOptionRow extends StatelessWidget {
           children: [
             Icon(
               selected ? Icons.check_circle : Icons.circle_outlined,
-              color: selected ? StanceColors.primary : _gray,
+              color: selected ? AppColors.primary : AppColors.gray,
             ),
             const SizedBox(width: 8),
             Text(
@@ -221,40 +220,6 @@ class _UnitOptionRow extends StatelessWidget {
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ],
-        ),
-      ),
-    ),
-  );
-}
-
-/// Stance's `StanceSmallButton` (Secondary): 32 dp tall, 20 dp radius,
-/// primary at 10 % with a 2 dp primary border, bold bodyMedium label.
-class _SmallButton extends StatelessWidget {
-  const _SmallButton({super.key, required this.text, required this.onTap});
-
-  final String text;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Material(
-    color: const Color(0x1A792EFF),
-    shape: const StadiumBorder(
-      side: BorderSide(color: StanceColors.primary, width: 2),
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      onTap: onTap,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 32),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Text(
-            text,
-            textAlign: TextAlign.center,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-          ),
         ),
       ),
     ),

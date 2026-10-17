@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../workout/session.dart';
 import '../workout/set_metrics.dart';
+import 'app_theme.dart';
 import 'charts/sticking_bar.dart';
 import 'comparison_views.dart';
 import 'format.dart';
-import 'stance_theme.dart';
 
 /// Per-rep numbers: rep #, mean and peak velocity (m/s), ROM (cm), in
 /// Stance's `RepSpeedDetailsTable` panel (#232323, 8 dp corners, 12 dp
@@ -20,7 +20,7 @@ class RepTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final head = theme.textTheme.bodyMedium
-        ?.copyWith(color: StanceColors.subtitleGray);
+        ?.copyWith(color: AppColors.subtitleGray);
     final body = theme.textTheme.bodyMedium.tabular;
     final best = reps.bestMeanVelocity;
 
@@ -72,7 +72,7 @@ class StickingList extends StatelessWidget {
     final theme = Theme.of(context);
     final small = theme.textTheme.bodySmall.tabular;
     final label = theme.textTheme.labelSmall
-        ?.copyWith(color: StanceColors.subtitleGray, fontWeight: FontWeight.w500);
+        ?.copyWith(color: AppColors.subtitleGray, fontWeight: FontWeight.w500);
     final withSticking = reps.where((r) => r.sticking != null).toList();
     if (withSticking.isEmpty) return const SizedBox.shrink();
 

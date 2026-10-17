@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Stance's `StanceColorTokens` (the ones the app uses).
-abstract final class StanceColors {
+abstract final class AppColors {
   static const primary = Color(0xFF792EFF);
   static const primaryLight = Color(0xFF9357FF);
   static const primaryVariant = Color(0xFF498AEE);
@@ -12,9 +12,19 @@ abstract final class StanceColors {
   static const success = Color(0xFF5EBA5C);
   static const amber = Color(0xFFFF9900);
   static const subtitleGray = Color(0xFF8E8E93);
+  static const pink = Color(0xFFF415C3);
+  static const purple1 = Color(0xFF915EEB);
+  static const purple2 = Color(0xFF782EFD);
+  static const fourgroundSolid = Color(0xFF201B28);
+
+  /// Compose's `Color.Gray`, which Stance uses for secondary labels.
+  static const gray = Color(0xFF888888);
 
   /// Home's `IosCardBackground`: white at 4 %.
   static const cardFill = Color(0x0AFFFFFF);
+
+  /// `cardStroke`: white at 12 %.
+  static const cardStroke = Color(0x1FFFFFFF);
 
   /// `SmallDeviceStatusButton` status dot.
   static const connected = Color(0xFF34C759);
@@ -25,16 +35,16 @@ abstract final class StanceColors {
 /// the dark scheme without dynamic colour, so there is no light theme.
 const _scheme = ColorScheme(
   brightness: Brightness.dark,
-  primary: StanceColors.primary,
+  primary: AppColors.primary,
   onPrimary: Colors.white,
-  primaryContainer: StanceColors.primaryLight,
+  primaryContainer: AppColors.primaryLight,
   onPrimaryContainer: Color(0xFFE8DDFF),
   inversePrimary: Color(0xFFC4A8FF),
-  secondary: StanceColors.secondaryPrime,
+  secondary: AppColors.secondaryPrime,
   onSecondary: Colors.white,
   secondaryContainer: Color(0xFF4A2A5C),
   onSecondaryContainer: Color(0xFFF8E0FF),
-  tertiary: StanceColors.primaryVariant,
+  tertiary: AppColors.primaryVariant,
   onTertiary: Colors.white,
   tertiaryContainer: Color(0xFF1E3A5C),
   onTertiaryContainer: Color(0xFFD6E8FF),
@@ -44,7 +54,7 @@ const _scheme = ColorScheme(
   surfaceTint: Color(0x1F792EFF),
   inverseSurface: Color(0xFFE5E7EB),
   onInverseSurface: Color(0xFF1A1C1E),
-  error: StanceColors.error,
+  error: AppColors.error,
   onError: Colors.white,
   errorContainer: Color(0xFF93000A),
   onErrorContainer: Color(0xFFFFDAD6),
@@ -53,7 +63,7 @@ const _scheme = ColorScheme(
   scrim: Colors.black,
   surfaceBright: Color(0xFF3F4A6C),
   surfaceDim: Color(0xFF2E3652),
-  surfaceContainerLowest: StanceColors.background,
+  surfaceContainerLowest: AppColors.background,
   surfaceContainerLow: Color(0xFF2E3652),
   surfaceContainer: Color(0xFF353E5C),
   surfaceContainerHigh: Color(0xFF3A4464),
@@ -93,20 +103,20 @@ final _textTheme = TextTheme(
 RoundedRectangleBorder _rounded(double r) =>
     RoundedRectangleBorder(borderRadius: BorderRadius.circular(r));
 
-ThemeData stanceTheme() => ThemeData(
+ThemeData appTheme() => ThemeData(
       colorScheme: _scheme,
       fontFamily: 'Poppins',
       textTheme: _textTheme,
       // Compose's Scaffold paints colorScheme.background.
-      scaffoldBackgroundColor: StanceColors.background,
-      canvasColor: StanceColors.background,
+      scaffoldBackgroundColor: AppColors.background,
+      canvasColor: AppColors.background,
       appBarTheme: const AppBarTheme(
-        backgroundColor: StanceColors.background,
+        backgroundColor: AppColors.background,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 0,
       ),
       cardTheme: CardThemeData(
-        color: StanceColors.cardFill,
+        color: AppColors.cardFill,
         elevation: 0,
         shape: _rounded(16),
       ),
@@ -121,6 +131,6 @@ ThemeData stanceTheme() => ThemeData(
       ),
       listTileTheme: ListTileThemeData(
         subtitleTextStyle:
-            _textTheme.bodyMedium?.copyWith(color: StanceColors.subtitleGray),
+            _textTheme.bodyMedium?.copyWith(color: AppColors.subtitleGray),
       ),
     );

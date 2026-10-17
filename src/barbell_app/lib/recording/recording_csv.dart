@@ -15,7 +15,7 @@ import '../sensor/sensor_sample.dart';
 import 'recording.dart';
 
 /// Stance's `ImuCsvWriter.HEADER_LINE`.
-const stanceImuCsvHeader = 'Timestamp,Gyroscope X (deg/s),Gyroscope Y (deg/s),'
+const referenceImuCsvHeader = 'Timestamp,Gyroscope X (deg/s),Gyroscope Y (deg/s),'
     'Gyroscope Z (deg/s),Accelerometer X (g),Accelerometer Y (g),'
     'Accelerometer Z (g),Quaternion W,Quaternion X,Quaternion Y,Quaternion Z';
 
@@ -73,7 +73,7 @@ ParsedRecording parseRecordingCsv(String text) {
 
   final header = _stripBom(lines[i].trim());
   final ours = header == Recording.csvHeader;
-  if (!ours && header != stanceImuCsvHeader) {
+  if (!ours && header != referenceImuCsvHeader) {
     throw RecordingCsvException(
         'Unexpected CSV header. Expected exact export header line.');
   }
@@ -88,7 +88,7 @@ ParsedRecording parseRecordingCsv(String text) {
       throw RecordingCsvException(
           'Line $lineNo: expected $columns columns, got ${parts.length}');
     }
-    samples.add(ours ? _ourRow(parts, lineNo) : _stanceRow(parts, lineNo));
+    samples.add(ours ? _ourRow(parts, lineNo) : _referenceRow(parts, lineNo));
   }
   if (samples.length < 2) {
     throw RecordingCsvException(
@@ -119,7 +119,7 @@ SensorSample _ourRow(List<String> p, int line) => SensorSample(
 
 /// Stance's column order: timestamp, gyro, accel, quaternion. Its only
 /// clock is the sensor's, so it also stands in for the phone clock.
-SensorSample _stanceRow(List<String> p, int line) {
+SensorSample _referenceRow(List<String> p, int line) {
   final ms = _chipTimeMs(p[0]);
   if (ms == null) {
     throw RecordingCsvException('Line $line: invalid Timestamp value "${p[0]}"');

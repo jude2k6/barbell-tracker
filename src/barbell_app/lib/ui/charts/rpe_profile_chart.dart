@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 
 import '../../workout/load_velocity.dart' show niceTicks;
 import '../../workout/rpe_profile.dart';
+import '../app_theme.dart';
 import '../format.dart';
-import '../stance_theme.dart';
-import 'rep_velocity_chart.dart' show stanceAxisLabel;
+import 'rep_velocity_chart.dart' show chartAxisLabel;
 
 /// Stance's RPE colour scale, 5 (grey-blue) to 10 (red) in 0.5 steps.
 const _rpeColors = [
@@ -50,7 +50,7 @@ class _RpeProfileChartState extends State<RpeProfileChart> {
         child: Center(
           child: Text('No data to display',
               style: theme.textTheme.bodyLarge?.copyWith(
-                  color: StanceColors.subtitleGray, fontWeight: FontWeight.w700)),
+                  color: AppColors.subtitleGray, fontWeight: FontWeight.w700)),
         ),
       );
     }
@@ -63,9 +63,9 @@ class _RpeProfileChartState extends State<RpeProfileChart> {
             painter: RpeProfilePainter(
               profile: p,
               zoomedOut: _zoomedOut,
-              lineColor: StanceColors.primary,
+              lineColor: AppColors.primary,
               gridColor: const Color(0x26FFFFFF),
-              labelStyle: stanceAxisLabel,
+              labelStyle: chartAxisLabel,
             ),
             child: const SizedBox.expand(),
           ),

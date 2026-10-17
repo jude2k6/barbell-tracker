@@ -2,8 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../stance_theme.dart';
-import 'rep_velocity_chart.dart' show stanceAxisLabel;
+import '../app_theme.dart';
+import 'rep_velocity_chart.dart' show chartAxisLabel;
 
 /// A rep's concentric window on the velocity chart.
 class RepWindow {
@@ -39,10 +39,10 @@ class VelocityChart extends StatelessWidget {
             velocity: velocity,
             hz: hz,
             reps: reps,
-            lineColor: StanceColors.primary,
-            shadeColor: StanceColors.primary.withValues(alpha: 0.12),
+            lineColor: AppColors.primary,
+            shadeColor: AppColors.primary.withValues(alpha: 0.12),
             gridColor: const Color(0x26FFFFFF),
-            labelStyle: stanceAxisLabel,
+            labelStyle: chartAxisLabel,
           ),
           child: const SizedBox.expand(),
         ),

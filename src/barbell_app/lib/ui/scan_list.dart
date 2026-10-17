@@ -5,13 +5,14 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import '../permissions/permission_service.dart';
 import 'app_scope.dart';
+import 'app_theme.dart';
 import 'permission_prompts.dart';
-import 'stance_theme.dart';
 
 /// BLE scan results as Stance's `DeviceScreen` list: a Bluetooth status row
-/// and "Stance Tracker" device rows with a Connect pill. WitMotion sensors
-/// ("WT…") first, then by signal. Scans on open, on pull-to-refresh and on
-/// [rescan]; reports the device whose Connect was tapped.
+/// and "Sensors" device rows (Stance's "Stance Tracker") with a Connect
+/// pill. WitMotion sensors ("WT…") first, then by signal. Scans on open,
+/// on pull-to-refresh and on [rescan]; reports the device whose Connect
+/// was tapped.
 class ScanList extends StatefulWidget {
   const ScanList({super.key, required this.onSelected, this.rescan});
 
@@ -115,7 +116,7 @@ class _ScanListState extends State<ScanList> {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Text(
         title,
-        style: text.titleSmall?.copyWith(color: StanceColors.subtitleGray),
+        style: text.titleSmall?.copyWith(color: AppColors.subtitleGray),
       ),
     );
 
@@ -152,14 +153,14 @@ class _ScanListState extends State<ScanList> {
               ],
             ),
           ),
-          section('Stance Tracker'),
+          section('Sensors'),
           if (named.isEmpty && !_scanning)
             Padding(
               padding: const EdgeInsets.all(8),
               child: Text(
                 'No sensors found. Pull down to scan again.',
                 style: text.bodyMedium?.copyWith(
-                  color: StanceColors.subtitleGray,
+                  color: AppColors.subtitleGray,
                 ),
               ),
             ),
@@ -195,12 +196,12 @@ class _ScanListState extends State<ScanList> {
   (String, Color) _bluetoothStatus() {
     final p = _permissions;
     if (p != null && p.access(AppCapability.bluetooth) != Access.granted) {
-      return ('Not authorized', StanceColors.subtitleGray);
+      return ('Not authorized', AppColors.subtitleGray);
     }
     return switch (p?.radio) {
-      RadioState.off => ('OFF', StanceColors.disconnected),
-      RadioState.unavailable => ('Unavailable', StanceColors.subtitleGray),
-      _ => ('ON', StanceColors.connected),
+      RadioState.off => ('OFF', AppColors.disconnected),
+      RadioState.unavailable => ('Unavailable', AppColors.subtitleGray),
+      _ => ('ON', AppColors.connected),
     };
   }
 }
@@ -220,7 +221,7 @@ class DevicePanel extends StatelessWidget {
     constraints: BoxConstraints(minHeight: minHeight),
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     decoration: BoxDecoration(
-      color: StanceColors.cardFill,
+      color: AppColors.cardFill,
       borderRadius: BorderRadius.circular(16),
     ),
     child: child,

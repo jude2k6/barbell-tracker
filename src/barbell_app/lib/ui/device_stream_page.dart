@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../workout/device_stream.dart';
 import 'app_scope.dart';
+import 'app_widgets.dart';
 import 'sensor_status_chip.dart';
-import 'stance_widgets.dart';
 import 'workout_flow.dart';
 
 /// Stance's "Test device stream" debug screen: live raw motion data from the

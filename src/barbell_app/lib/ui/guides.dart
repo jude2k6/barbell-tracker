@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../analysis/exercises.dart';
 import '../workout/guide_tips.dart';
-import 'comparison_views.dart';
-import 'stance_theme.dart';
+import 'app_theme.dart';
+import 'app_widgets.dart';
 
 /// Stance's step-by-step guides (notes §17), shown in a paging dialog.
 class GuideStep {
@@ -131,7 +131,7 @@ class _GuideMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(children: [
-        const Icon(Icons.auto_awesome, size: 20, color: StanceColors.secondaryPrime),
+        const Icon(Icons.auto_awesome, size: 20, color: AppColors.secondaryPrime),
         const SizedBox(height: 8),
         Expanded(
           child: Container(
@@ -179,7 +179,7 @@ class _GuideOverlayState extends State<_GuideOverlay> {
               key: const Key('guideDialog'),
               gradient: _guideBorder,
               width: 2,
-              color: StanceExtraColors.fourgroundSolid,
+              color: AppColors.fourgroundSolid,
               child: Padding(
                 padding: const EdgeInsets.all(15),
                 child: IntrinsicHeight(
@@ -204,7 +204,7 @@ class _GuideOverlayState extends State<_GuideOverlay> {
                               style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w500,
-                                  color: StanceColors.subtitleGray)),
+                                  color: AppColors.subtitleGray)),
                           const SizedBox(height: 16),
                           Row(children: [
                             for (var d = 0; d < widget.steps.length; d++)
@@ -215,7 +215,7 @@ class _GuideOverlayState extends State<_GuideOverlay> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: d == _i
-                                      ? StanceColors.primary
+                                      ? AppColors.primary
                                       : const Color(0x40792EFF),
                                 ),
                               ),
@@ -298,7 +298,7 @@ Future<void> showGuideTip(BuildContext context, GuideTip tip) =>
                                           ?.copyWith(fontWeight: FontWeight.w700)),
                                   Text(tip.message,
                                       style: theme.textTheme.bodyMedium?.copyWith(
-                                          color: StanceColors.subtitleGray)),
+                                          color: AppColors.subtitleGray)),
                                 ],
                               ),
                             ),
@@ -312,46 +312,6 @@ Future<void> showGuideTip(BuildContext context, GuideTip tip) =>
         );
       },
     );
-
-/// Stance's `ExtraSmallButton` (GuideTipOverlay): a Purple2 20 % pill with
-/// Purple1 11 sp bold text and an optional 14 dp icon.
-class ExtraSmallButton extends StatelessWidget {
-  const ExtraSmallButton(this.text,
-      {super.key, required this.onPressed, this.icon, this.leadingIcon = false});
-
-  final String text;
-  final VoidCallback? onPressed;
-  final IconData? icon;
-  final bool leadingIcon;
-
-  @override
-  Widget build(BuildContext context) {
-    final glyph = icon == null
-        ? null
-        : Icon(icon, size: 14, color: StanceExtraColors.purple1);
-    return Material(
-      color: const Color(0x33782EFD),
-      shape: const StadiumBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            if (leadingIcon && glyph != null) ...[glyph, const SizedBox(width: 2)],
-            Text(text,
-                style: const TextStyle(
-                    fontSize: 11,
-                    height: 16 / 11,
-                    fontWeight: FontWeight.w700,
-                    color: StanceExtraColors.purple1)),
-            if (!leadingIcon && glyph != null) ...[const SizedBox(width: 2), glyph],
-          ]),
-        ),
-      ),
-    );
-  }
-}
 
 /// Stance's `PreRecordingTips.poolFor`: general tips plus the exercise
 /// family's. Its "Run STANCE with an internet connection" tip is left out:

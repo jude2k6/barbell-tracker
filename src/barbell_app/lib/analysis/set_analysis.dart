@@ -5,9 +5,9 @@
 library;
 
 import '../sensor/sensor_sample.dart';
-import 'exercises.dart';
 import 'deadlift_models.dart';
 import 'deadlift_pipeline.dart';
+import 'exercises.dart';
 import 'motion_mapper.dart';
 import 'squat_bench_pipeline.dart';
 

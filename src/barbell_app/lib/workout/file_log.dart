@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Stance's limits for the debug log file (`AppFileLogLimitsKt`).
-const fileLogName = 'stance-app.log';
+const fileLogName = 'barbell-tracker.log';
 const fileLogMaxBytes = 5242880;
 const fileLogTrimCheckInterval = 10;
 const fileLogTrimLines = 10;
@@ -123,7 +123,7 @@ class AppLog {
   @visibleForTesting
   static void reset() => _file = null;
 
-  /// Opens `debug_logs/stance-app.log` in the app documents folder, or
+  /// Opens `debug_logs/barbell-tracker.log` in the app documents folder, or
   /// [directory] if given, and writes the app-start lines.
   static Future<void> init({Directory? directory}) async {
     try {

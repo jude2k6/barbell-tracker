@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../analysis/exercises.dart';
 import 'app_scope.dart';
+import 'app_theme.dart';
+import 'app_widgets.dart';
 import 'auto_reconnect.dart';
 import 'debug_menu_page.dart';
 import 'exercise_list.dart';
@@ -10,8 +12,6 @@ import 'preferences_page.dart';
 import 'recording_import_card.dart';
 import 'recordings_page.dart';
 import 'sensor_status_chip.dart';
-import 'stance_widgets.dart';
-import 'stance_theme.dart';
 import 'user_details_sheet.dart';
 import 'workout_flow.dart';
 
@@ -81,7 +81,7 @@ class _HomePageState extends State<HomePage> {
                       Text(
                         'Select an exercise to start a workout.',
                         style: theme.textTheme.bodyLarge
-                            ?.copyWith(color: StanceColors.subtitleGray),
+                            ?.copyWith(color: AppColors.subtitleGray),
                       ),
                     ],
                   ),

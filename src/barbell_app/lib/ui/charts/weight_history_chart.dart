@@ -3,9 +3,9 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../workout/load_velocity.dart';
+import '../app_theme.dart';
 import '../format.dart';
-import '../stance_theme.dart';
-import 'rep_velocity_chart.dart' show stanceAxisLabel;
+import 'rep_velocity_chart.dart' show chartAxisLabel;
 
 /// Earlier sets at one weight: a bar from the slowest to the fastest rep
 /// mean velocity, newest on the right and highlighted. Always
@@ -28,10 +28,10 @@ class WeightHistoryChart extends StatelessWidget {
             points: points,
             // Stance: newest Primary, earlier SecondaryPrime, white 15 %
             // grid, 11 sp white labels.
-            latestColor: StanceColors.primary,
-            color: StanceColors.secondaryPrime,
+            latestColor: AppColors.primary,
+            color: AppColors.secondaryPrime,
             gridColor: const Color(0x26FFFFFF),
-            labelStyle: stanceAxisLabel.copyWith(color: Colors.white),
+            labelStyle: chartAxisLabel.copyWith(color: Colors.white),
           ),
           child: const SizedBox.expand(),
         ),

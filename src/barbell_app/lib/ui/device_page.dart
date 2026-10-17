@@ -7,15 +7,15 @@ import '../sensor/sensor_link.dart';
 import '../sensor/witmotion/witmotion_link.dart';
 import '../workout/sensor_controller.dart';
 import 'app_scope.dart';
+import 'app_theme.dart';
+import 'app_widgets.dart';
 import 'auto_reconnect.dart';
-import 'permission_prompts.dart';
 import 'calibration_dialog.dart';
 import 'format.dart';
 import 'live_trace.dart';
+import 'permission_prompts.dart';
 import 'recordings_page.dart';
 import 'scan_list.dart';
-import 'stance_theme.dart';
-import 'stance_widgets.dart';
 
 /// Sensor management, laid out like Stance's `DeviceScreen`: top bar (back,
 /// refresh), "Devices" header, then the scan list or, once linked, link
@@ -90,7 +90,7 @@ class _DevicePageState extends State<DevicePage> {
                     Text(
                       'Select a device to connect to.',
                       style: text.bodyLarge?.copyWith(
-                        color: StanceColors.subtitleGray,
+                        color: AppColors.subtitleGray,
                       ),
                     ),
                   ],
@@ -132,7 +132,7 @@ class _DevicePageState extends State<DevicePage> {
                       children: [
                         const Icon(
                           Icons.error_outline,
-                          color: StanceColors.error,
+                          color: AppColors.error,
                         ),
                         Expanded(
                           child: Column(
@@ -146,7 +146,7 @@ class _DevicePageState extends State<DevicePage> {
                                 '${sensor.lastError ?? 'Unknown error'}',
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(
-                                      color: StanceColors.subtitleGray,
+                                      color: AppColors.subtitleGray,
                                     ),
                               ),
                             ],
@@ -237,7 +237,7 @@ class _ConnectedViewState extends State<_ConnectedView> {
           Text(
             label,
             style: theme.textTheme.labelMedium?.copyWith(
-              color: StanceColors.subtitleGray,
+              color: AppColors.subtitleGray,
             ),
           ),
           Text(value, style: numbers),
@@ -259,8 +259,8 @@ class _ConnectedViewState extends State<_ConnectedView> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: streaming
-                      ? StanceColors.connected
-                      : StanceColors.subtitleGray,
+                      ? AppColors.connected
+                      : AppColors.subtitleGray,
                 ),
               ),
               Expanded(
@@ -276,7 +276,7 @@ class _ConnectedViewState extends State<_ConnectedView> {
                       Text(
                         statusText,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: StanceColors.subtitleGray,
+                          color: AppColors.subtitleGray,
                         ),
                       ),
                     ],
@@ -289,7 +289,7 @@ class _ConnectedViewState extends State<_ConnectedView> {
                   child: Text(
                     '🔋 ${battery.clamp(0, 100).toInt()}%',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: StanceColors.connected,
+                      color: AppColors.connected,
                     ),
                   ),
                 ),
@@ -325,7 +325,7 @@ class _ConnectedViewState extends State<_ConnectedView> {
                 'received ${rate.received} · missing ~${rate.estimatedMissing}'
                 ' · clock jumps ${rate.clockJumps}',
                 style: theme.textTheme.bodySmall.tabular?.copyWith(
-                  color: StanceColors.subtitleGray,
+                  color: AppColors.subtitleGray,
                 ),
               ),
             ],
@@ -337,13 +337,13 @@ class _ConnectedViewState extends State<_ConnectedView> {
           child: Text(
             'Vertical acceleration (g, gravity removed)',
             style: theme.textTheme.titleSmall?.copyWith(
-              color: StanceColors.subtitleGray,
+              color: AppColors.subtitleGray,
             ),
           ),
         ),
         DevicePanel(child: LiveTrace(sensor: sensor, height: 180)),
         const SizedBox(height: 16),
-        StanceButton(
+        AppButton(
           text: 'Calibrate (lay flat)',
           height: 48,
           onPressed: streaming
@@ -376,10 +376,10 @@ class _ForgetSavedTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  StanceButton(
+                  AppButton(
                     key: const Key('forgetSavedSensor'),
                     text: 'Forget saved device',
-                    style: StanceButtonStyle.secondary,
+                    style: AppButtonStyle.secondary,
                     onPressed: saved.forget,
                   ),
                   const SizedBox(height: 4),
@@ -387,7 +387,7 @@ class _ForgetSavedTile extends StatelessWidget {
                     'Disconnects and removes the last device from saved preferences '
                     'so you can pair a different one.',
                     style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: StanceColors.subtitleGray),
+                        ?.copyWith(color: AppColors.subtitleGray),
                   ),
                 ],
               ),

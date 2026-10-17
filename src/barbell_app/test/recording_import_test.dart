@@ -74,7 +74,7 @@ void main() {
     });
 
     test("reads Stance's IMU export: chip time, gyro, accel, quaternion", () {
-      const csv = '﻿$stanceImuCsvHeader\n'
+      const csv = '﻿$referenceImuCsvHeader\n'
           '2026-10-12T09:00:00.000,1,2,3,0.1,0.2,0.9,1,0,0,0\n'
           '\n'
           '2026-10-12 09:00:00.005,1,2,3,0.1,0.2,0.9,0.5,0.5,0.5,0.5\n';
@@ -96,19 +96,19 @@ void main() {
       expect(_msg(() => parseRecordingCsv('a,b,c\n1,2,3\n')),
           'Unexpected CSV header. Expected exact export header line.');
       expect(
-          _msg(() => parseRecordingCsv('$stanceImuCsvHeader\n'
+          _msg(() => parseRecordingCsv('$referenceImuCsvHeader\n'
               '2026-10-12T09:00:00.000,1,2,3\n')),
           'Line 2: expected 11 columns, got 4');
       expect(
-          _msg(() => parseRecordingCsv('$stanceImuCsvHeader\n'
+          _msg(() => parseRecordingCsv('$referenceImuCsvHeader\n'
               '2026-10-12T09:00:00.000,1,2,3,x,0,0,1,0,0,0\n')),
           'Line 2: invalid Acc X value "x"');
       expect(
-          _msg(() => parseRecordingCsv('$stanceImuCsvHeader\n'
+          _msg(() => parseRecordingCsv('$referenceImuCsvHeader\n'
               '2026-10-12T09:00:00.000,1,2,3,0,0,0,1,0,0,0\n')),
           'Need at least 2 data rows, got 1');
       expect(
-          _msg(() => parseRecordingCsv('$stanceImuCsvHeader\n'
+          _msg(() => parseRecordingCsv('$referenceImuCsvHeader\n'
               'noon,1,2,3,0,0,0,1,0,0,0\nnoon,1,2,3,0,0,0,1,0,0,0\n')),
           'Line 2: invalid Timestamp value "noon"');
       // Our format: physical line numbers, after the comment line.

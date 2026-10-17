@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../recording/recording.dart';
-import 'stance_theme.dart';
-import 'stance_widgets.dart';
+import 'app_theme.dart';
+import 'app_widgets.dart';
 
 /// Our own page (Stance has none), styled like its list screens: Home's
 /// 44 dp circle back button and headlineLarge title over 16 dp cards at
@@ -51,13 +51,13 @@ class _RecordingsPageState extends State<RecordingsPage> {
                   if (files == null) {
                     return const Center(
                         child: CircularProgressIndicator(
-                            color: StanceColors.primary));
+                            color: AppColors.primary));
                   }
                   if (files.isEmpty) {
                     return Center(
                       child: Text('No recordings yet.',
                           style: theme.textTheme.bodyLarge
-                              ?.copyWith(color: StanceColors.subtitleGray)),
+                              ?.copyWith(color: AppColors.subtitleGray)),
                     );
                   }
                   return RefreshIndicator(
@@ -89,11 +89,11 @@ class _RecordingRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final gray = theme.textTheme.bodySmall
-        ?.copyWith(color: StanceColors.subtitleGray);
+        ?.copyWith(color: AppColors.subtitleGray);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: StanceColors.cardFill,
+        color: AppColors.cardFill,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(children: [

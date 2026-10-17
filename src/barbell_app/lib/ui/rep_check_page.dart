@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 import '../workout/preferences.dart';
 import '../workout/rep_editing.dart';
 import '../workout/session.dart';
+import 'app_theme.dart';
+import 'app_widgets.dart';
 import 'charts/velocity_chart.dart';
 import 'format.dart';
 import 'guides.dart';
-import 'stance_theme.dart';
-import 'stance_widgets.dart';
 
 /// Stance's Rep Check (`RepCheckSheet`, notes §17): the set's reps as markers on its
 /// velocity trace. Drag a rep's start and end, delete a rep, or add one by
@@ -190,16 +190,16 @@ class _RepCheckPageState extends State<RepCheckPage> {
         child: Stack(alignment: Alignment.center, children: [
           Align(
             alignment: Alignment.centerLeft,
-            child: _SmallButton('Save',
+            child: AppSmallButton('Save',
                 key: const Key('saveMarkers'),
-                primary: true,
                 onPressed: _dirty && !_saving ? () => _commit(_markers) : null),
           ),
           Text('Rep Check',
               textAlign: TextAlign.center, style: theme.textTheme.titleMedium),
           Align(
             alignment: Alignment.centerRight,
-            child: _SmallButton('Done',
+            child: AppSmallButton('Done',
+                secondary: true,
                 onPressed: () => Navigator.of(context).maybePop()),
           ),
         ]),
@@ -211,7 +211,7 @@ class _RepCheckPageState extends State<RepCheckPage> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text('No velocity data available',
               style: theme.textTheme.titleMedium
-                  ?.copyWith(color: StanceColors.subtitleGray)),
+                  ?.copyWith(color: AppColors.subtitleGray)),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
             child: Text(
@@ -219,7 +219,7 @@ class _RepCheckPageState extends State<RepCheckPage> {
                 'not be available for older sets.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMedium
-                    ?.copyWith(color: StanceColors.subtitleGray)),
+                    ?.copyWith(color: AppColors.subtitleGray)),
           ),
         ]),
       );
@@ -242,7 +242,7 @@ class _RepCheckPageState extends State<RepCheckPage> {
             'adjust its start and end, or add and delete reps, then save '
             'your changes.',
             style: theme.textTheme.bodyMedium
-                ?.copyWith(color: StanceColors.subtitleGray),
+                ?.copyWith(color: AppColors.subtitleGray),
           ),
         ),
         VelocityChart(
@@ -265,8 +265,8 @@ class _RepCheckPageState extends State<RepCheckPage> {
           Expanded(
             child: SliderTheme(
               data: SliderTheme.of(context).copyWith(
-                activeTrackColor: StanceColors.primary,
-                thumbColor: StanceColors.primary,
+                activeTrackColor: AppColors.primary,
+                thumbColor: AppColors.primary,
                 inactiveTrackColor: Colors.white.withValues(alpha: 0.2),
               ),
               child: Slider(
@@ -317,7 +317,7 @@ class _RepCheckPageState extends State<RepCheckPage> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-          color: StanceColors.cardFill,
+          color: AppColors.cardFill,
           borderRadius: BorderRadius.circular(16)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(children: [
@@ -331,7 +331,7 @@ class _RepCheckPageState extends State<RepCheckPage> {
             'R${i + 1}e ${m.endSec.toStringAsFixed(2)} s'
             '${rep == null || _dirty ? '' : ' · ${fmtVelocity(rep.meanVelocity)} m/s'}',
             style: theme.textTheme.bodyMedium.tabular
-                ?.copyWith(color: StanceColors.subtitleGray),
+                ?.copyWith(color: AppColors.subtitleGray),
           ),
         ),
         IconButton(
@@ -358,46 +358,4 @@ class _RepCheckPageState extends State<RepCheckPage> {
     ]),
     );
   }
-}
-
-/// Stance's `StanceSmallButton` (private copy, also in the RPE profile
-/// page): 20 dp radius, min 32 dp; primary is filled, secondary is
-/// primary at 10 % with a 2 dp primary border.
-class _SmallButton extends StatelessWidget {
-  const _SmallButton(this.label,
-      {super.key, required this.onPressed, this.primary = false});
-
-  final String label;
-  final bool primary;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) => Opacity(
-        opacity: onPressed == null ? 0.4 : 1,
-        child: Material(
-          color: primary
-              ? StanceColors.primary
-              : StanceColors.primary.withValues(alpha: 0.1),
-          shape: StadiumBorder(
-              side: primary
-                  ? BorderSide.none
-                  : const BorderSide(color: StanceColors.primary, width: 2)),
-          child: InkWell(
-            customBorder: const StadiumBorder(),
-            onTap: onPressed,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 32),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                child: Center(
-                  widthFactor: 1,
-                  child: Text(label,
-                      style: Theme.of(context).textTheme.labelMedium),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
 }

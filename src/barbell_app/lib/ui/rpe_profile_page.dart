@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../workout/rpe_profile.dart';
 import '../workout/session.dart';
 import 'app_scope.dart';
+import 'app_theme.dart';
+import 'app_widgets.dart';
 import 'charts/rpe_profile_chart.dart';
 import 'format.dart';
-import 'stance_theme.dart';
 
 /// Every RPE tag for one exercise, grouped by RPE, with edit and remove.
 /// Port of Stance's `RpeProfileManagerSheet` (headline title with a Done
@@ -106,8 +107,7 @@ class _RpeProfilePageState extends State<RpeProfilePage> {
                             style: theme.textTheme.headlineLarge)),
                     Padding(
                       padding: const EdgeInsets.only(left: 8, top: 14),
-                      child: _SmallButton('Done',
-                          primary: true,
+                      child: AppSmallButton('Done',
                           onPressed: () => Navigator.of(context).pop()),
                     ),
                   ]),
@@ -116,7 +116,7 @@ class _RpeProfilePageState extends State<RpeProfilePage> {
                     child: Text(
                         'Review and clean up every RPE tag for this exercise.',
                         style: theme.textTheme.bodyLarge
-                            ?.copyWith(color: StanceColors.subtitleGray)),
+                            ?.copyWith(color: AppColors.subtitleGray)),
                   ),
                   const SizedBox(height: 4),
                   Text(widget.exerciseTitle,
@@ -135,19 +135,19 @@ class _RpeProfilePageState extends State<RpeProfilePage> {
                       alignment: Alignment.center,
                       child: Text('No RPE tags for this exercise yet',
                           style: theme.textTheme.bodyLarge
-                              ?.copyWith(color: StanceColors.subtitleGray)),
+                              ?.copyWith(color: AppColors.subtitleGray)),
                     )
                   else ...[
                     Row(spacing: 8, children: [
                       Text('Sort by',
                           style: theme.textTheme.labelSmall
-                              ?.copyWith(color: StanceColors.subtitleGray)),
+                              ?.copyWith(color: AppColors.subtitleGray)),
                       Expanded(
-                        child: _SegmentedTabs(
-                          labels: [for (final s in RpeProfileSort.values) s.label],
-                          selected: RpeProfileSort.values.indexOf(_sort),
-                          onSelected: (i) => setState(
-                              () => _sort = RpeProfileSort.values[i]),
+                        child: AppSegmentedTabs<RpeProfileSort>(
+                          values: RpeProfileSort.values,
+                          selected: _sort,
+                          label: (s) => s.label,
+                          onSelect: (s) => setState(() => _sort = s),
                         ),
                       ),
                     ]),
@@ -178,7 +178,7 @@ class _RpeProfilePageState extends State<RpeProfilePage> {
         key: ValueKey('rpeRow-${row.setId}'),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-            color: StanceColors.cardFill,
+            color: AppColors.cardFill,
             borderRadius: BorderRadius.circular(16)),
         child: Row(spacing: 8, children: [
           Expanded(
@@ -193,87 +193,8 @@ class _RpeProfilePageState extends State<RpeProfilePage> {
               style: theme.textTheme.labelSmall.tabular,
             ),
           ),
-          _SmallButton('Edit', onPressed: () => _edit(row)),
-          _SmallButton('Delete', onPressed: () => _delete(row)),
-        ]),
-      );
-}
-
-/// Stance's `StanceSmallButton`: 20 dp radius, min 32 dp tall; primary is
-/// filled, secondary is primary at 10 % with a 2 dp primary border.
-class _SmallButton extends StatelessWidget {
-  const _SmallButton(this.label, {required this.onPressed, this.primary = false});
-
-  final String label;
-  final bool primary;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) => Material(
-        color: primary
-            ? StanceColors.primary
-            : StanceColors.primary.withValues(alpha: 0.1),
-        shape: StadiumBorder(
-            side: primary
-                ? BorderSide.none
-                : const BorderSide(color: StanceColors.primary, width: 2)),
-        child: InkWell(
-          customBorder: const StadiumBorder(),
-          onTap: onPressed,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 32),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: Center(
-                widthFactor: 1,
-                child: Text(label,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.labelMedium),
-              ),
-            ),
-          ),
-        ),
-      );
-}
-
-/// Stance's `StanceSegmentedTabs`: 32 dp track at white 6 % (8 dp radius,
-/// 2 dp padding); 28 dp segments, the selected one white at 16 %.
-class _SegmentedTabs extends StatelessWidget {
-  const _SegmentedTabs(
-      {required this.labels, required this.selected, required this.onSelected});
-
-  final List<String> labels;
-  final int selected;
-  final ValueChanged<int> onSelected;
-
-  @override
-  Widget build(BuildContext context) => Container(
-        height: 32,
-        padding: const EdgeInsets.all(2),
-        decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(8)),
-        child: Row(children: [
-          for (final (i, label) in labels.indexed)
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => onSelected(i),
-                child: Container(
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                      color: i == selected
-                          ? Colors.white.withValues(alpha: 0.16)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(6)),
-                  child: Text(label,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: i == selected
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.7))),
-                ),
-              ),
-            ),
+          AppSmallButton('Edit', secondary: true, onPressed: () => _edit(row)),
+          AppSmallButton('Delete', secondary: true, onPressed: () => _delete(row)),
         ]),
       );
 }

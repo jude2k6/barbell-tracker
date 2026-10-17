@@ -4,18 +4,16 @@ import '../analysis/exercises.dart';
 import '../workout/active_session.dart';
 import '../workout/load_velocity.dart';
 import '../workout/preferences.dart';
-import '../workout/sensor_controller.dart';
 import '../workout/session.dart';
 import '../workout/set_metrics.dart';
 import 'app_scope.dart';
+import 'app_theme.dart';
+import 'app_widgets.dart';
 import 'charts/rpe_profile_chart.dart' show rpeColor;
 import 'format.dart';
 import 'permission_prompts.dart';
 import 'session_tag_editor.dart';
-import 'sensor_status_chip.dart';
 import 'sessions_builder.dart';
-import 'stance_theme.dart';
-import 'stance_widgets.dart';
 import 'workout_flow.dart';
 
 /// Stance's `SessionListRoute`: the workout top bar, "Sessions" over the
@@ -49,7 +47,9 @@ class SessionsPage extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _WorkoutTopBar(sensor: app.sensor),
+                WorkoutTopBar(
+                    sensor: app.sensor,
+                    padding: const EdgeInsets.symmetric(horizontal: 18)),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
                   child: Column(
@@ -94,9 +94,9 @@ class SessionsPage extends StatelessWidget {
                 if (active == null)
                   Padding(
                     padding: const EdgeInsets.all(20),
-                    child: _StanceButton(
+                    child: AppButton(
                       key: const Key('newSession'),
-                      label: 'New Session',
+                      text: 'New Session',
                       height: 48,
                       onPressed: () => _newSession(context, exercise),
                     ),
@@ -123,64 +123,6 @@ Future<void> _newSession(BuildContext context, Exercise exercise) async {
   await startSet(context, exercise);
 }
 
-/// Stance's `WorkoutTopBar`: a 44 dp row, 18 dp in from the sides, with
-/// the back button and the device status.
-class _WorkoutTopBar extends StatelessWidget {
-  const _WorkoutTopBar({required this.sensor});
-
-  final SensorController sensor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      child: Row(children: [
-        CircleIconButton(
-          key: const Key('workoutBack'),
-          icon: Icons.arrow_back,
-          tooltip: 'Back',
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        const Spacer(),
-        SensorStatusChip(sensor: sensor, onPressed: () => openDevice(context)),
-      ]),
-    );
-  }
-}
-
-/// Stance's `StanceButton` (Primary, or Idle while disabled): white
-/// bodyLarge semibold on the primary colour, 16 dp corners.
-class _StanceButton extends StatelessWidget {
-  const _StanceButton(
-      {super.key, required this.label, required this.onPressed, this.height = 42});
-
-  final String label;
-  final VoidCallback? onPressed;
-  final double height;
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton(
-      style: FilledButton.styleFrom(
-        minimumSize: Size.fromHeight(height),
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        backgroundColor: StanceColors.primary,
-        foregroundColor: Colors.white,
-        disabledBackgroundColor: const Color(0x0FFFFFFF),
-        disabledForegroundColor: const Color(0xFF888888),
-        textStyle: Theme.of(context)
-            .textTheme
-            .bodyLarge
-            ?.copyWith(fontWeight: FontWeight.w600),
-      ),
-      onPressed: onPressed,
-      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-    );
-  }
-}
-
 /// Stance's `SessionEmptyCard`: 100 dp at white 4 %, "new session" in
 /// the primary colour.
 class _SessionEmptyCard extends StatelessWidget {
@@ -193,7 +135,7 @@ class _SessionEmptyCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: StanceColors.cardFill,
+        color: AppColors.cardFill,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Text.rich(
@@ -201,7 +143,7 @@ class _SessionEmptyCard extends StatelessWidget {
           TextSpan(text: 'Tap '),
           TextSpan(
               text: 'new session',
-              style: TextStyle(color: StanceColors.primary)),
+              style: TextStyle(color: AppColors.primary)),
           TextSpan(text: ' to start collecting data.'),
         ]),
         style: Theme.of(context).textTheme.bodyMedium,
@@ -210,12 +152,7 @@ class _SessionEmptyCard extends StatelessWidget {
   }
 }
 
-/// Stance's `purple1` and `purple2` at 20 % (`ActiveCardBackground`).
-const _purple1 = Color(0xFF915EEB);
 const _purple2Tint = Color(0x33782EFD);
-
-/// Compose's `Color.Gray`.
-const _gray = Color(0xFF888888);
 
 /// Stance's `SessionCard`: start date and a Continue/View pill, the tags
 /// row, and the sets table (newest set first). The active session's card
@@ -239,10 +176,10 @@ class _SessionCard extends StatelessWidget {
     final s = session;
     return Material(
       key: ValueKey('sessionCard-${s.id}'),
-      color: active ? _purple2Tint : StanceColors.cardFill,
+      color: active ? _purple2Tint : AppColors.cardFill,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: active ? const BorderSide(color: _purple1) : BorderSide.none,
+        side: active ? const BorderSide(color: AppColors.purple1) : BorderSide.none,
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -255,9 +192,9 @@ class _SessionCard extends StatelessWidget {
               Expanded(
                 child: Align(
                   alignment: Alignment.centerRight,
-                  child: _PillButton(
+                  child: ExtraSmallPillButton(
+                    active ? 'Continue' : 'View',
                     key: ValueKey('openSession-${s.id}'),
-                    label: active ? 'Continue' : 'View',
                     onPressed: onOpen,
                   ),
                 ),
@@ -287,40 +224,6 @@ String _detailedDate(DateTime t) {
       : switch (d % 10) { 1 => 'st', 2 => 'nd', 3 => 'rd', _ => 'th' };
   final yy = (t.year % 100).toString().padLeft(2, '0');
   return '$d$suffix ${months[t.month - 1]} $yy, ${fmtTime(t)}';
-}
-
-/// Stance's `ExtraSmallPillButton`: purple1 text and a 12 dp arrow on
-/// purple2 at 20 %.
-class _PillButton extends StatelessWidget {
-  const _PillButton({super.key, required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: _purple2Tint,
-      shape: const StadiumBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onPressed,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(label,
-                maxLines: 1,
-                style: Theme.of(context)
-                    .textTheme
-                    .labelMedium
-                    ?.copyWith(color: _purple1, fontWeight: FontWeight.w600)),
-            const SizedBox(width: 2),
-            const Icon(Icons.arrow_forward, size: 12, color: _purple1),
-          ]),
-        ),
-      ),
-    );
-  }
 }
 
 /// Stance's `SessionSetsTable`: five equal columns (weight, reps, type,
@@ -381,7 +284,7 @@ class _SetsTable extends StatelessWidget {
                 Text(title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(color: _gray)),
+                    style: theme.textTheme.labelSmall?.copyWith(color: AppColors.gray)),
                 for (final set in sets) ...[
                   const SizedBox(height: 4),
                   build(set),

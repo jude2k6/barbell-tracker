@@ -3,10 +3,10 @@ import 'package:share_plus/share_plus.dart';
 
 import '../workout/file_log.dart';
 import 'app_scope.dart';
+import 'app_theme.dart';
+import 'app_widgets.dart';
 import 'device_stream_page.dart';
 import 'sensor_status_chip.dart';
-import 'stance_theme.dart';
-import 'stance_widgets.dart';
 import 'workout_flow.dart';
 
 /// Stance's `SettingsScreen` (back button, 26 dp title, status chip, 16 dp
@@ -63,7 +63,7 @@ class DebugMenuPage extends StatelessWidget {
             Text(
               'Logs are saved automatically (last 5 MB). Share to send for support.',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: StanceColors.subtitleGray,
+                color: AppColors.subtitleGray,
               ),
             ),
             const SizedBox(height: 16),

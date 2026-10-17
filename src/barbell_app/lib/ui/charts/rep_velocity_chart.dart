@@ -4,23 +4,23 @@ import 'package:flutter/material.dart';
 
 import '../../workout/load_velocity.dart' show niceTicks;
 import '../../workout/session_comparison.dart';
+import '../app_theme.dart';
 import '../format.dart';
-import '../stance_theme.dart';
 
 /// Stance's `StanceAxisLabel` (Poppins 11/14 medium) in SubtitleGray, the
 /// tick labels of its charts.
-const stanceAxisLabel = TextStyle(
+const chartAxisLabel = TextStyle(
   fontFamily: 'Poppins',
   fontSize: 11,
   height: 14 / 11,
   fontWeight: FontWeight.w500,
-  color: StanceColors.subtitleGray,
+  color: AppColors.subtitleGray,
   fontFeatures: tabularFigures,
 );
 
 /// Stance draws chart strokes in raw pixels; this converts them at the
 /// reference phone's 2.625 density.
-double stancePx(double px) => px / 2.625;
+double pxToDp(double px) => px / 2.625;
 
 /// Mean velocity per rep as a smoothed line with dots, optionally against
 /// a second set's reps. Port of Stance's `RepVelocityChart`.
@@ -53,7 +53,7 @@ class RepVelocityChart extends StatelessWidget {
         child: Center(
           child: Text('No data to display',
               style: theme.textTheme.bodyLarge?.copyWith(
-                  color: StanceColors.subtitleGray, fontWeight: FontWeight.w700)),
+                  color: AppColors.subtitleGray, fontWeight: FontWeight.w700)),
         ),
       );
     }
@@ -67,12 +67,12 @@ class RepVelocityChart extends StatelessWidget {
             compare: compare,
             bounds: bounds ?? repChartBounds([...velocities, ...compare]),
             showAxes: showAxes,
-            color: StanceColors.primary,
-            compareColor: StanceColors.secondaryPrime,
+            color: AppColors.primary,
+            compareColor: AppColors.secondaryPrime,
             gridColor: const Color(0x26FFFFFF),
-            labelStyle: stanceAxisLabel,
+            labelStyle: chartAxisLabel,
             titleStyle: theme.textTheme.labelSmall!.copyWith(
-                color: StanceColors.subtitleGray, fontWeight: FontWeight.w500),
+                color: AppColors.subtitleGray, fontWeight: FontWeight.w500),
           ),
           child: const SizedBox.expand(),
         ),
@@ -118,7 +118,7 @@ class RepVelocityPainter extends CustomPainter {
     if (showAxes) {
       final grid = Paint()
         ..color = gridColor
-        ..strokeWidth = stancePx(1);
+        ..strokeWidth = pxToDp(1);
       for (final v in niceTicks(lo, hi, 4)) {
         if (v < lo - 1e-9 || v > hi + 1e-9) continue;
         canvas.drawLine(Offset(plot.left, y(v)), Offset(plot.right, y(v)), grid);
@@ -149,11 +149,11 @@ class RepVelocityPainter extends CustomPainter {
         Paint()
           ..color = c
           ..style = PaintingStyle.stroke
-          ..strokeWidth = stancePx(4),
+          ..strokeWidth = pxToDp(4),
       );
     }
     for (final p in pts) {
-      canvas.drawCircle(p, stancePx(9), Paint()..color = c);
+      canvas.drawCircle(p, pxToDp(9), Paint()..color = c);
     }
   }
 

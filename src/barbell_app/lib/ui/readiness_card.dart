@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../workout/readiness.dart';
 import '../workout/session.dart';
+import 'app_theme.dart';
 import 'format.dart';
-import 'stance_theme.dart';
 
 /// This set's speed against last session and the average at the same
 /// weight, with a Faster/Slower verdict, a speed strip and the history.
@@ -67,7 +67,7 @@ class _ReadinessCardState extends State<ReadinessCard> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelSmall
-                ?.copyWith(color: StanceColors.subtitleGray)),
+                ?.copyWith(color: AppColors.subtitleGray)),
       ]),
     );
   }
@@ -88,7 +88,7 @@ class _ReadinessCardState extends State<ReadinessCard> {
             weightLabel: fmtWeight(set.weight, set.unit),
           );
     final grayMedium = theme.textTheme.bodyMedium
-        ?.copyWith(color: StanceColors.subtitleGray);
+        ?.copyWith(color: AppColors.subtitleGray);
 
     return Card(
       margin: EdgeInsets.zero,
@@ -112,15 +112,15 @@ class _ReadinessCardState extends State<ReadinessCard> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   _stat(theme, 'This Session', current,
-                      const Key('readinessThis'), StanceColors.primary,
+                      const Key('readinessThis'), AppColors.primary,
                       primary: true),
                   const SizedBox(width: 6),
                   _stat(theme, 'Last Session', r.lastSessionSpeed,
-                      const Key('readinessLast'), StanceColors.primaryLight,
+                      const Key('readinessLast'), AppColors.primaryLight,
                       primary: false),
                   const SizedBox(width: 6),
                   _stat(theme, 'Average', r.historicAverage,
-                      const Key('readinessAvg'), StanceColors.primaryVariant,
+                      const Key('readinessAvg'), AppColors.primaryVariant,
                       primary: false),
                 ]),
             if (current != null && r.hasHistory) ...[
@@ -139,7 +139,7 @@ class _ReadinessCardState extends State<ReadinessCard> {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text('No historical data available',
                     style: theme.textTheme.bodyLarge?.copyWith(
-                        color: StanceColors.subtitleGray,
+                        color: AppColors.subtitleGray,
                         fontStyle: FontStyle.italic)),
               ),
             if (r.points.isNotEmpty) ...[
@@ -160,7 +160,7 @@ class _ReadinessCardState extends State<ReadinessCard> {
                       Text('m/s', style: theme.textTheme.bodyMedium),
                       Text('(${daysAgoText(p.date, widget.now ?? DateTime.now())})',
                           style: theme.textTheme.labelSmall?.copyWith(
-                              color: StanceColors.subtitleGray
+                              color: AppColors.subtitleGray
                                   .withValues(alpha: 0.7))),
                       Expanded(
                         child: Text(
@@ -192,21 +192,20 @@ class _ComparisonBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const purple1 = Color(0xFF915EEB);
     return Container(
       padding: const EdgeInsets.all(1),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         gradient: const LinearGradient(
-            colors: [Color(0xFFF415C3), StanceColors.primary]),
+            colors: [AppColors.pink, AppColors.primary]),
       ),
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(15),
           color: Color.alphaBlend(
-              StanceColors.primary.withValues(alpha: 0.08),
-              const Color(0xFF201B28)),
+              AppColors.primary.withValues(alpha: 0.08),
+              AppColors.fourgroundSolid),
         ),
         child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -216,7 +215,7 @@ class _ComparisonBanner extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF782EFD).withValues(alpha: 0.2),
+                    color: AppColors.purple2.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, spacing: 2, children: [
@@ -225,12 +224,12 @@ class _ComparisonBanner extends StatelessWidget {
                             ? Icons.bolt
                             : Icons.hourglass_bottom,
                         size: 14,
-                        color: purple1),
+                        color: AppColors.purple1),
                     Text(comparison.title,
                         style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: purple1)),
+                            color: AppColors.purple1)),
                   ]),
                 ),
                 if (comparison.isFaster)
@@ -279,7 +278,7 @@ class ReadinessStrip extends StatelessWidget {
     ].map(_round2).toList();
     final lo = values.reduce(math.min), hi = values.reduce(math.max);
     final labelStyle = theme.textTheme.labelSmall?.copyWith(
-        color: StanceColors.subtitleGray,
+        color: AppColors.subtitleGray,
         fontWeight: FontWeight.w500,
         fontFeatures: tabularFigures);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -294,10 +293,10 @@ class ReadinessStrip extends StatelessWidget {
             lastSession: lastSession,
             average: average,
             track: Colors.white.withValues(alpha: 0.04),
-            historyColor: const Color(0xFF888888),
-            averageColor: StanceColors.primaryVariant,
-            lastColor: StanceColors.primaryLight,
-            currentColor: StanceColors.primary,
+            historyColor: AppColors.gray,
+            averageColor: AppColors.primaryVariant,
+            lastColor: AppColors.primaryLight,
+            currentColor: AppColors.primary,
           ),
           child: const SizedBox.expand(),
         ),

@@ -150,7 +150,7 @@ decompiled app. Trace how Stance implements each one before building it.
       Recording/Calibration screens, sync diagnostics, Sign out; and
       per-screen lifecycle logging.
 - [x] **Visual style** *(Stance, `presentation/theme` and each screen's
-      composables)*: done. Theme in `ui/stance_theme.dart` (dark-only
+      composables)*: done. Theme in `ui/app_theme.dart` (`AppColors`, `appTheme()`), shared widgets in `ui/app_widgets.dart` (dark-only
       scheme, Poppins from the APK, type scale, shapes). Every screen now
       follows its Stance composable: Home (group drill-down), Sessions,
       Weight input, Pre-recording, Session feedback with its sheets, guides
@@ -160,14 +160,6 @@ decompiled app. Trace how Stance implements each one before building it.
       New Session shows only when no session is active; the record timer
       counts whole seconds; Preferences has no back button.
 - [ ] **Visual style follow-ups**:
-      - Move the duplicated design-system widgets into
-        `ui/stance_widgets.dart` / `ui/stance_theme.dart`. These are
-        StanceButton, WorkoutTopBar, the small and extra-small buttons,
-        StanceSegmentedTabs, StanceMenuPicker, StanceAlert, stanceCard and
-        the extra colours. Copies currently sit in `comparison_views.dart`,
-        `guides.dart`, `permission_prompts.dart`, `scan_list.dart`,
-        `rpe_profile_page.dart`, `rep_check_page.dart`, the three workout
-        pages, `preferences_page.dart` and `user_details_sheet.dart`.
       - Extract the vector drawables `stance_ai` (`res/Fn.xml`) and
         `icon_comparison`. Sparkle and compare-arrows icons stand in for
         them now.
