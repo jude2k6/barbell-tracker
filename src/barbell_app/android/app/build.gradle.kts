@@ -6,7 +6,9 @@ plugins {
 
 android {
     namespace = "dev.barbelltracker.barbell_app"
-    compileSdk = flutter.compileSdkVersion
+    // 37, not flutter.compileSdkVersion (36): permission_handler_android
+    // compiles against 37. Plugins are aligned to this in ../build.gradle.kts.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
