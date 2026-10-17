@@ -239,7 +239,7 @@ void main() {
       await tester.tap(find.text('lb'));
       await tester.tap(find.text('ft-in'));
       await tester.pump();
-      await tester.pageBack();
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(prefs.value.weightUnit, WeightUnit.kg);
       expect(prefs.value.heightUnit, HeightUnit.cm);

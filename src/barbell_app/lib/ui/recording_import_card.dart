@@ -11,6 +11,7 @@ import '../workout/recording_import.dart';
 import '../workout/session.dart';
 import 'app_scope.dart';
 import 'format.dart';
+import 'stance_theme.dart';
 import 'workout_flow.dart';
 
 /// A picked file: its name and its text.
@@ -93,22 +94,47 @@ class _RecordingImportCardState extends State<RecordingImportCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final last = _state.lastImported;
+    final subtitle = theme.textTheme.bodySmall?.copyWith(
+      color: StanceColors.subtitleGray,
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Card(
-          margin: EdgeInsets.zero,
-          child: ListTile(
+        // Home's import item: a 16 dp card at 4 % white, like the catalogue rows.
+        Material(
+          color: StanceColors.cardFill,
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
             key: const Key('importRecording'),
-            leading: _state.isLoading
-                ? const SizedBox.square(
-                    dimension: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.file_open_outlined),
-            title: const Text('Import recording'),
-            subtitle: Text(_state.isLoading
-                ? 'Processing recording…'
-                : 'Import a raw recording CSV to replay a set.'),
             onTap: _state.isLoading ? null : _import,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(children: [
+                _state.isLoading
+                    ? const SizedBox.square(
+                        dimension: 24,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: StanceColors.primary))
+                    : const Icon(Icons.file_open_outlined),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Import recording',
+                            style: theme.textTheme.bodyLarge
+                                ?.copyWith(fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        Text(
+                            _state.isLoading
+                                ? 'Processing recording…'
+                                : 'Import a raw recording CSV to replay a set.',
+                            style: subtitle),
+                      ]),
+                ),
+              ]),
+            ),
           ),
         ),
         if (_state.errorMessage != null)
@@ -121,48 +147,59 @@ class _RecordingImportCardState extends State<RecordingImportCard> {
                   ?.copyWith(color: theme.colorScheme.error),
             ),
           ),
+        // Stance's `LastImportedExerciseLabel`: a 12 dp card at 4 % white.
         if (last != null)
-          Card(
-            key: const Key('lastImported'),
-            margin: const EdgeInsets.only(top: 8),
-            child: InkWell(
-              onTap: () => openSessions(context, last.exercise),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 4, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(children: [
-                      Expanded(
-                        child: Text('Imported: ${last.exercise.rawValue}',
-                            style: theme.textTheme.titleSmall),
-                      ),
-                      IconButton(
-                        key: const Key('dismissLastImport'),
-                        tooltip: 'Dismiss last import',
-                        icon: const Icon(Icons.close),
-                        onPressed: () =>
-                            setState(() => _state = _state.dismissLast()),
-                      ),
-                    ]),
-                    Text(
-                        'Recorded: ${fmtDate(last.recordedAt)} ${fmtTime(last.recordedAt)}',
-                        style: theme.textTheme.bodySmall),
-                    Text('Tap to open Sessions for this exercise',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant)),
-                    if (last.rawCsvFile case final raw?) ...[
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: OutlinedButton(
-                          key: const Key('exportImuCsv'),
-                          onPressed: () => _export(raw),
-                          child: const Text('Export IMU CSV'),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Material(
+              key: const Key('lastImported'),
+              color: StanceColors.cardFill,
+              borderRadius: BorderRadius.circular(12),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: () => openSessions(context, last.exercise),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Imported: ${last.exercise.rawValue}',
+                                  style: theme.textTheme.bodySmall),
+                              const SizedBox(height: 4),
+                              Text(
+                                  'Recorded: ${fmtDate(last.recordedAt)} ${fmtTime(last.recordedAt)}',
+                                  style: subtitle),
+                              const SizedBox(height: 4),
+                              Text('Tap to open Sessions for this exercise',
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                      color: StanceColors.subtitleGray)),
+                            ],
+                          ),
                         ),
-                      ),
+                        IconButton(
+                          key: const Key('dismissLastImport'),
+                          tooltip: 'Dismiss last import',
+                          icon: const Icon(Icons.close),
+                          onPressed: () =>
+                              setState(() => _state = _state.dismissLast()),
+                        ),
+                      ]),
+                      if (last.rawCsvFile case final raw?)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4, right: 8),
+                          child: OutlinedButton(
+                            key: const Key('exportImuCsv'),
+                            onPressed: () => _export(raw),
+                            child: const Text('Export IMU CSV'),
+                          ),
+                        ),
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -180,6 +217,9 @@ Future<void> shareImuCsv(String path) async {
     title: 'Share IMU recording',
   ));
 }
+
+/// `StanceAlertDefaults.cardColor`.
+const _alertCard = Color(0xFF201B28);
 
 class _ImportDetails {
   const _ImportDetails(this.exercise, this.weight, this.unit);
@@ -222,55 +262,87 @@ class _ImportDetailsDialogState extends State<_ImportDetailsDialog> {
   Widget build(BuildContext context) {
     final weight = _parsedWeight;
     final ready = _exercise != null && weight != null;
-    return AlertDialog(
-      title: const Text('Import recording'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(widget.fileName, style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<Exercise>(
-              key: const Key('importExercise'),
-              initialValue: _exercise,
-              isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Exercise'),
-              items: [
-                for (final e in Exercise.all)
-                  DropdownMenuItem(value: e, child: Text(e.rawValue)),
-              ],
-              onChanged: (e) => setState(() => _exercise = e),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const Key('importWeight'),
-              controller: _weight,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                labelText: 'Weight (optional)',
-                suffixText: widget.unit.name,
-                errorText: weight == null ? 'Enter a valid weight' : null,
+    final theme = Theme.of(context);
+    // Stance's `StanceAlertDialog`: a 300 dp card, 12 dp radius, 16 dp
+    // padding, bold titleMedium, subtitle-gray message and fill-width actions.
+    return Dialog(
+      backgroundColor: _alertCard,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: SizedBox(
+        width: 300,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(children: [
+                Expanded(
+                  child: Text('Import recording',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                ),
+                SizedBox.square(
+                  dimension: 28,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    iconSize: 18,
+                    tooltip: 'Close',
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+              ]),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(widget.fileName,
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: StanceColors.subtitleGray)),
               ),
-              onChanged: (_) => setState(() {}),
-            ),
-          ],
+              const SizedBox(height: 12),
+              DropdownButtonFormField<Exercise>(
+                key: const Key('importExercise'),
+                initialValue: _exercise,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Exercise'),
+                items: [
+                  for (final e in Exercise.all)
+                    DropdownMenuItem(value: e, child: Text(e.rawValue)),
+                ],
+                onChanged: (e) => setState(() => _exercise = e),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('importWeight'),
+                controller: _weight,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: 'Weight (optional)',
+                  suffixText: widget.unit.name,
+                  errorText: weight == null ? 'Enter a valid weight' : null,
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                key: const Key('importContinue'),
+                onPressed: ready
+                    ? () => Navigator.pop(context,
+                        _ImportDetails(_exercise!, weight, widget.unit))
+                    : null,
+                child: const Text('Continue'),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cancel',
+                    style: const TextStyle(color: StanceColors.subtitleGray)),
+              ),
+            ],
+          ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          key: const Key('importContinue'),
-          onPressed: ready
-              ? () => Navigator.pop(
-                  context, _ImportDetails(_exercise!, weight, widget.unit))
-              : null,
-          child: const Text('Continue'),
-        ),
-      ],
     );
   }
 }

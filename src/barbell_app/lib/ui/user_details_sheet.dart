@@ -4,6 +4,7 @@ import '../workout/preferences.dart';
 import '../workout/session.dart';
 import '../workout/user_profile.dart';
 import 'format.dart';
+import 'stance_theme.dart';
 
 /// The profile being edited plus the two unit preferences, which Stance's
 /// weight and height fields switch too (`UserProfileEditorRules.Draft`).
@@ -55,6 +56,7 @@ Future<void> showUserDetailsSheet(
     isScrollControlled: true,
     showDragHandle: true,
     useSafeArea: true,
+    backgroundColor: _sheetColor,
     builder: (context) => FractionallySizedBox(
       heightFactor: 0.95,
       child: UserDetailsEditor(
@@ -103,11 +105,12 @@ class _UserDetailsEditorState extends State<UserDetailsEditor> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final next = _p.nextFieldToComplete;
+    const gap = SizedBox(height: 12);
     return Column(
       children: [
         // Header stays put while the fields scroll.
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
               Expanded(
@@ -118,17 +121,17 @@ class _UserDetailsEditorState extends State<UserDetailsEditor> {
                       if (_p.firstName.trim().isNotEmpty)
                         TextSpan(
                           text: ' ${_p.firstName}',
-                          style: TextStyle(color: theme.colorScheme.primary),
+                          style: const TextStyle(color: StanceColors.primary),
                         ),
                     ],
                   ),
-                  style: theme.textTheme.titleLarge,
+                  style: theme.textTheme.titleMedium,
                 ),
               ),
-              FilledButton(
+              _SmallButton(
                 key: const Key('profileSave'),
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(_draft.differsFrom(widget.saved) ? 'Save' : 'Done'),
+                text: _draft.differsFrom(widget.saved) ? 'Save' : 'Done',
+                onTap: () => Navigator.of(context).pop(),
               ),
             ],
           ),
@@ -137,38 +140,59 @@ class _UserDetailsEditorState extends State<UserDetailsEditor> {
           child: ListView(
             padding: EdgeInsets.fromLTRB(
               16,
-              0,
+              8,
               16,
               24 + MediaQuery.viewInsetsOf(context).bottom,
             ),
             children: [
-              const SizedBox(height: 12),
-              Text('Profile', style: theme.textTheme.titleMedium),
               Text(
-                'Complete your profile to get insights and recommendations more '
-                'personalised to you.',
-                style: theme.textTheme.bodySmall,
+                'Profile',
+                style: theme.textTheme.headlineLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 16),
+                child: Text(
+                  'Complete your profile to get insights and recommendations '
+                  'more personalised to you.',
+                  style: theme.textTheme.bodyMedium?.copyWith(color: _gray),
+                ),
+              ),
               // Stance's `ProfileCompletionHeader`.
               Row(
                 children: [
                   Expanded(
-                    child: LinearProgressIndicator(value: _p.completion),
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: _p.completion,
+                          color: StanceColors.primary,
+                          backgroundColor: const Color(0x1AFFFFFF),
+                        ),
+                      ),
+                    ),
                   ),
-                  const SizedBox(width: 12),
                   Text(
                     completionLabel(_p.completion),
                     key: const Key('profileCompletion'),
-                    style: theme.textTheme.labelLarge?.copyWith(
-                      color: theme.colorScheme.primary,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: StanceColors.primary,
                     ),
                   ),
                 ],
               ),
               if (next != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: StanceColors.primary),
+                  ),
                   child: Text(
                     'Add $next for better insights',
                     style: theme.textTheme.bodySmall,
@@ -183,6 +207,7 @@ class _UserDetailsEditorState extends State<UserDetailsEditor> {
                 value: _p.firstName,
                 onChanged: (v) => _profile(_p.copyWith(firstName: v)),
               ),
+              gap,
               _TextField(
                 key: const Key('profileLastName'),
                 label: 'Last Name',
@@ -191,18 +216,21 @@ class _UserDetailsEditorState extends State<UserDetailsEditor> {
                 value: _p.lastName,
                 onChanged: (v) => _profile(_p.copyWith(lastName: v)),
               ),
+              gap,
               _Picker<String>(
-                key: const Key('profileGender'),
+                fieldKey: const Key('profileGender'),
                 label: 'Gender',
                 hint: 'Select Gender',
                 value: _p.gender,
                 options: {for (final g in genders) g: g},
                 onChanged: (v) => _profile(_p.copyWith(gender: () => v)),
               ),
+              gap,
               _DateField(
                 value: _p.dateOfBirth,
                 onChanged: (v) => _profile(_p.copyWith(dateOfBirth: () => v)),
               ),
+              gap,
               _WeightField(
                 weightKg: _p.weightKg,
                 metric: _draft.metricWeight,
@@ -213,6 +241,7 @@ class _UserDetailsEditorState extends State<UserDetailsEditor> {
                   ),
                 ),
               ),
+              gap,
               _HeightField(
                 heightCm: _p.heightCm,
                 metric: _draft.metricHeight,
@@ -223,8 +252,9 @@ class _UserDetailsEditorState extends State<UserDetailsEditor> {
                   ),
                 ),
               ),
+              gap,
               _Picker<int>(
-                key: const Key('profileTrainingAge'),
+                fieldKey: const Key('profileTrainingAge'),
                 label: 'Training Age (years)',
                 description: 'How long have you been powerlifting?',
                 hint: 'Select Training Age',
@@ -232,8 +262,9 @@ class _UserDetailsEditorState extends State<UserDetailsEditor> {
                 options: {for (var y = 0; y <= trainingAgeMax; y++) y: '$y'},
                 onChanged: (v) => _profile(_p.copyWith(trainingAge: () => v)),
               ),
+              gap,
               _Picker<ConfidenceLevel>(
-                key: const Key('profileConfidence'),
+                fieldKey: const Key('profileConfidence'),
                 label: 'RPE Confidence Level',
                 description: 'How confident are you in judging your RPE?',
                 hint: 'Select Confidence Level',
@@ -244,10 +275,13 @@ class _UserDetailsEditorState extends State<UserDetailsEditor> {
                 onChanged: (v) =>
                     _profile(_p.copyWith(confidenceLevel: () => v)),
               ),
+              gap,
               _Picker<CompetitionLevel>(
-                key: const Key('profileCompetition'),
+                fieldKey: const Key('profileCompetition'),
                 label: 'Competition Level',
-                description: 'Have you competed in powerlifting before and if so what level?',
+                description:
+                    'Have you competed in powerlifting before and if so what '
+                    'level?',
                 hint: 'Select Competition Level',
                 value: _p.competitionLevel,
                 options: {
@@ -256,9 +290,15 @@ class _UserDetailsEditorState extends State<UserDetailsEditor> {
                 onChanged: (v) =>
                     _profile(_p.copyWith(competitionLevel: () => v)),
               ),
-              const SizedBox(height: 8),
-              Text('Optional Information', style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
+              Divider(color: _gray.withValues(alpha: 0.4)),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'Optional Information',
+                  style: theme.textTheme.titleMedium?.copyWith(color: _gray),
+                ),
+              ),
               _TextField(
                 key: const Key('profileInstagram'),
                 label: 'Instagram Username',
@@ -269,6 +309,7 @@ class _UserDetailsEditorState extends State<UserDetailsEditor> {
                 onChanged: (v) =>
                     _profile(_p.copyWith(instagramUsername: () => v)),
               ),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -277,27 +318,128 @@ class _UserDetailsEditorState extends State<UserDetailsEditor> {
   }
 }
 
-/// A labelled card-like block, like Stance's profile section fields.
+/// Stance's sheet container colour.
+const _sheetColor = Color(0xFF101010);
+
+/// Compose's `Color.Gray`: Stance's description and hint colour.
+const _gray = Color(0xFF888888);
+
+/// Stance's `StanceSmallButton` (Primary): 32 dp tall, 20 dp radius,
+/// primary fill, bold bodyMedium label.
+class _SmallButton extends StatelessWidget {
+  const _SmallButton({super.key, required this.text, required this.onTap});
+
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: StanceColors.primary,
+    shape: const StadiumBorder(),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 32),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// Stance's `stanceCard`: 20 dp radius, white 4 % fill, 1 dp white 12 %
+/// border, 16 dp padding.
+class _Card extends StatelessWidget {
+  const _Card({required this.child, this.onTap});
+
+  final Widget child;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: StanceColors.cardFill,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(20),
+      side: const BorderSide(color: Color(0x1FFFFFFF)),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      child: Padding(padding: const EdgeInsets.all(16), child: child),
+    ),
+  );
+}
+
+/// The `OutlinedTextField` colours Stance's profile fields share: white
+/// text, primary cursor and focused border, gray 50 % border and gray hint.
+InputDecoration _decoration({String? hint, String? label, String? error}) {
+  OutlineInputBorder border(Color c) => OutlineInputBorder(
+    borderRadius: BorderRadius.circular(4),
+    borderSide: BorderSide(color: c),
+  );
+  return InputDecoration(
+    hintText: hint,
+    hintStyle: const TextStyle(color: _gray),
+    labelText: label,
+    errorText: error,
+    enabledBorder: border(_gray.withValues(alpha: 0.5)),
+    focusedBorder: border(StanceColors.primary),
+    errorBorder: border(StanceColors.error),
+    focusedErrorBorder: border(StanceColors.error),
+  );
+}
+
+/// Stance's profile field card: a titleMedium [label], an optional gray
+/// [description], then the [child].
 class _Field extends StatelessWidget {
-  const _Field({required this.label, this.description, required this.child});
+  const _Field({
+    required this.label,
+    this.description,
+    this.trailing,
+    this.onTap,
+    required this.child,
+  });
 
   final String label;
   final String? description;
+
+  /// Shown at the end of the label row (the unit tabs).
+  final Widget? trailing;
+  final VoidCallback? onTap;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+    return _Card(
+      onTap: onTap,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(label, style: theme.textTheme.titleSmall),
+          Row(
+            children: [
+              Expanded(child: Text(label, style: theme.textTheme.titleMedium)),
+              ?trailing,
+            ],
+          ),
           if (description != null)
-            Text(description!, style: theme.textTheme.bodySmall),
-          const SizedBox(height: 6),
-          child,
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                description!,
+                style: theme.textTheme.bodySmall?.copyWith(color: _gray),
+              ),
+            ),
+          Padding(padding: const EdgeInsets.only(top: 8), child: child),
         ],
       ),
     );
@@ -323,19 +465,19 @@ class _TextField extends StatelessWidget {
     description: description,
     child: TextFormField(
       initialValue: value,
-      decoration: InputDecoration(
-        hintText: hint,
-        border: const OutlineInputBorder(),
-      ),
+      cursorColor: StanceColors.primary,
+      decoration: _decoration(hint: hint),
       textCapitalization: TextCapitalization.words,
       onChanged: onChanged,
     ),
   );
 }
 
+/// Stance's `ProfilePickerField` with `StanceMenuPicker`: a box (8 dp
+/// radius, gray 50 % border, semi-bold value, down arrow) opening a menu.
 class _Picker<T> extends StatelessWidget {
   const _Picker({
-    super.key,
+    required this.fieldKey,
     required this.label,
     this.description,
     required this.hint,
@@ -344,6 +486,7 @@ class _Picker<T> extends StatelessWidget {
     required this.onChanged,
   });
 
+  final Key fieldKey;
   final String label, hint;
   final String? description;
   final T? value;
@@ -351,21 +494,51 @@ class _Picker<T> extends StatelessWidget {
   final ValueChanged<T?> onChanged;
 
   @override
-  Widget build(BuildContext context) => _Field(
-    label: label,
-    description: description,
-    child: DropdownButtonFormField<T>(
-      initialValue: value,
-      hint: Text(hint),
-      isExpanded: true,
-      decoration: const InputDecoration(border: OutlineInputBorder()),
-      items: [
-        for (final MapEntry(:key, value: text) in options.entries)
-          DropdownMenuItem(value: key, child: Text(text)),
-      ],
-      onChanged: onChanged,
-    ),
-  );
+  Widget build(BuildContext context) {
+    final style = Theme.of(
+      context,
+    ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600);
+    return _Field(
+      label: label,
+      description: description,
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: PopupMenuButton<T>(
+          key: fieldKey,
+          tooltip: '',
+          onSelected: onChanged,
+          itemBuilder: (_) => [
+            for (final MapEntry(:key, value: text) in options.entries)
+              PopupMenuItem(value: key, child: Text(text)),
+          ],
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _gray.withValues(alpha: 0.5)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    options[value] ?? hint,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: style,
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(left: 6),
+                  child: Icon(Icons.keyboard_arrow_down, size: 16),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _DateField extends StatelessWidget {
@@ -375,15 +548,11 @@ class _DateField extends StatelessWidget {
   final ValueChanged<DateTime?> onChanged;
 
   @override
-  Widget build(BuildContext context) => _Field(
-    label: 'Date of Birth',
-    child: OutlinedButton(
-      key: const Key('profileDateOfBirth'),
-      style: OutlinedButton.styleFrom(
-        alignment: Alignment.centerLeft,
-        minimumSize: const Size.fromHeight(48),
-      ),
-      onPressed: () async {
+  Widget build(BuildContext context) => KeyedSubtree(
+    key: const Key('profileDateOfBirth'),
+    child: _Field(
+      label: 'Date of Birth',
+      onTap: () async {
         final now = DateTime.now();
         final picked = await showDatePicker(
           context: context,
@@ -393,7 +562,10 @@ class _DateField extends StatelessWidget {
         );
         if (picked != null) onChanged(picked);
       },
-      child: Text(value == null ? 'Select date' : fmtDate(value!)),
+      child: Text(
+        value == null ? 'Select date' : fmtDate(value!),
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
     ),
   );
 }
@@ -439,10 +611,10 @@ class _NumberInputState extends State<_NumberInput> {
     return TextField(
       controller: _controller,
       keyboardType: TextInputType.number,
-      decoration: InputDecoration(
-        hintText: widget.hint,
-        errorText: invalid ? widget.error : null,
-        border: const OutlineInputBorder(),
+      cursorColor: StanceColors.primary,
+      decoration: _decoration(
+        hint: widget.hint,
+        error: invalid ? widget.error : null,
       ),
       onChanged: (raw) {
         final digits = raw.replaceAll(RegExp(r'\D'), '');
@@ -459,6 +631,8 @@ class _NumberInputState extends State<_NumberInput> {
   }
 }
 
+/// Stance's `StanceSegmentedTabs`: 100 dp wide, 32 dp tall, 8 dp radius at
+/// 6 % white; the selected 28 dp tab is white 16 % with a semi-bold label.
 class _UnitToggle extends StatelessWidget {
   const _UnitToggle({
     super.key,
@@ -472,15 +646,43 @@ class _UnitToggle extends StatelessWidget {
   final ValueChanged<bool> onMetric;
 
   @override
-  Widget build(BuildContext context) => SegmentedButton<bool>(
-    segments: [
-      ButtonSegment(value: true, label: Text(labels.$1)),
-      ButtonSegment(value: false, label: Text(labels.$2)),
-    ],
-    selected: {metric},
-    showSelectedIcon: false,
-    onSelectionChanged: (s) => onMetric(s.first),
-  );
+  Widget build(BuildContext context) {
+    Widget tab(String text, bool value) {
+      final selected = metric == value;
+      return Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(6),
+          onTap: () => onMetric(value),
+          child: Container(
+            height: 28,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected ? const Color(0x29FFFFFF) : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: selected ? Colors.white : const Color(0xB3FFFFFF),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: 100,
+      height: 32,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: const Color(0x0FFFFFFF),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(children: [tab(labels.$1, true), tab(labels.$2, false)]),
+    );
+  }
 }
 
 /// Stance's `ProfileWeightField`: bodyweight in kg or lbs, stored as whole
@@ -508,27 +710,19 @@ class _WeightField extends StatelessWidget {
     final unit = metric ? 'kg' : 'lbs';
     return _Field(
       label: 'Weight',
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: _NumberInput(
-              key: ValueKey('profileWeight-$metric'),
-              value: shown,
-              hint: 'Enter weight ($unit)',
-              isValid: (v) => validWeight(v, metric: metric),
-              error: 'Enter a weight between $min and $max $unit',
-              onChanged: (v) => onChanged(v == null || metric ? v : lbsToKg(v)),
-            ),
-          ),
-          const SizedBox(width: 8),
-          _UnitToggle(
-            key: const Key('profileWeightUnit'),
-            labels: const ('kg', 'lbs'),
-            metric: metric,
-            onMetric: onMetric,
-          ),
-        ],
+      trailing: _UnitToggle(
+        key: const Key('profileWeightUnit'),
+        labels: const ('kg', 'lbs'),
+        metric: metric,
+        onMetric: onMetric,
+      ),
+      child: _NumberInput(
+        key: ValueKey('profileWeight-$metric'),
+        value: shown,
+        hint: 'Enter weight ($unit)',
+        isValid: (v) => validWeight(v, metric: metric),
+        error: 'Enter a weight between $min and $max $unit',
+        onChanged: (v) => onChanged(v == null || metric ? v : lbsToKg(v)),
       ),
     );
   }
@@ -552,31 +746,22 @@ class _HeightField extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _Field(
     label: 'Height',
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: metric
-              ? _NumberInput(
-                  key: const Key('profileHeightCm'),
-                  value: heightCm,
-                  hint: 'Enter height (cm)',
-                  isValid: validHeightCm,
-                  error:
-                      'Enter a height between $heightCmMin and $heightCmMax cm',
-                  onChanged: onChanged,
-                )
-              : _FeetInches(heightCm: heightCm, onChanged: onChanged),
-        ),
-        const SizedBox(width: 8),
-        _UnitToggle(
-          key: const Key('profileHeightUnit'),
-          labels: const ('cm', 'ft'),
-          metric: metric,
-          onMetric: onMetric,
-        ),
-      ],
+    trailing: _UnitToggle(
+      key: const Key('profileHeightUnit'),
+      labels: const ('cm', 'ft'),
+      metric: metric,
+      onMetric: onMetric,
     ),
+    child: metric
+        ? _NumberInput(
+            key: const Key('profileHeightCm'),
+            value: heightCm,
+            hint: 'Enter height (cm)',
+            isValid: validHeightCm,
+            error: 'Enter a height between $heightCmMin and $heightCmMax cm',
+            onChanged: onChanged,
+          )
+        : _FeetInches(heightCm: heightCm, onChanged: onChanged),
   );
 }
 
@@ -637,10 +822,8 @@ class _FeetInchesState extends State<_FeetInches> {
         key: key,
         controller: c,
         keyboardType: TextInputType.number,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-        ),
+        cursorColor: StanceColors.primary,
+        decoration: _decoration(label: label),
         onChanged: (raw) {
           final digits = raw.replaceAll(RegExp(r'\D'), '');
           if (digits != raw) c.text = digits;
@@ -654,7 +837,7 @@ class _FeetInchesState extends State<_FeetInches> {
         Row(
           children: [
             box(const Key('profileHeightFeet'), _feet, 'Feet'),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             box(const Key('profileHeightInches'), _inches, 'In'),
           ],
         ),

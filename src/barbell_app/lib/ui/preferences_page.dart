@@ -4,8 +4,9 @@ import '../workout/preferences.dart';
 import '../workout/session.dart';
 import '../workout/user_profile.dart';
 import 'app_scope.dart';
+import 'stance_theme.dart';
 
-/// Stance's Preferences: weight unit (used for weight input) and height
+/// Stance's `PreferencesScreen`: weight unit (used for weight input) and height
 /// unit. Like Stance, changes apply on Done; going back discards them.
 class PreferencesPage extends StatefulWidget {
   const PreferencesPage({super.key});
@@ -44,66 +45,218 @@ class _PreferencesPageState extends State<PreferencesPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    Widget unitRow<T>(
-      Key key,
-      List<(T, String)> options,
-      T selected,
-      ValueChanged<T> onSelected,
-    ) => SegmentedButton<T>(
-      key: key,
-      segments: [
-        for (final (v, label) in options)
-          ButtonSegment(value: v, label: Text(label)),
-      ],
-      selected: {selected},
-      showSelectedIcon: false,
-      onSelectionChanged: (s) => setState(() => onSelected(s.first)),
-    );
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Preferences'),
-        actions: [
-          TextButton(
-            key: const Key('preferencesDone'),
-            onPressed: _done,
-            child: const Text('Done'),
-          ),
-        ],
+      body: SafeArea(
+        child: _store == null
+            ? const SizedBox.shrink()
+            : SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Text(
+                          'Preferences',
+                          style: theme.textTheme.displaySmall?.copyWith(
+                            fontSize: 40,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Spacer(),
+                        _SmallButton(
+                          key: const Key('preferencesDone'),
+                          text: 'Done',
+                          onTap: _done,
+                        ),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Customize your app experience',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: _gray,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _UnitSection<WeightUnit>(
+                      title: 'Weight Unit',
+                      rowKey: const Key('weightUnitPreference'),
+                      options: const [(WeightUnit.kg, 'kg'), (WeightUnit.lb, 'lb')],
+                      selected: _weight,
+                      onSelected: (u) => setState(() => _weight = u),
+                      hint:
+                          'This preference will be used for exercise weight '
+                          'input.',
+                    ),
+                    const SizedBox(height: 16),
+                    _UnitSection<HeightUnit>(
+                      title: 'Height Unit',
+                      rowKey: const Key('heightUnitPreference'),
+                      options: const [(HeightUnit.cm, 'cm'), (HeightUnit.ftIn, 'ft-in')],
+                      selected: _height,
+                      onSelected: (u) => setState(() => _height = u),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
       ),
-      body: _store == null
-          ? const SizedBox.shrink()
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Text(
-                  'Customize your app experience',
-                  style: theme.textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 16),
-                Text('Weight Unit', style: theme.textTheme.titleSmall),
-                const SizedBox(height: 8),
-                unitRow(
-                  const Key('weightUnitPreference'),
-                  const [(WeightUnit.kg, 'kg'), (WeightUnit.lb, 'lb')],
-                  _weight,
-                  (u) => _weight = u,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'This preference will be used for exercise weight input.',
-                  style: theme.textTheme.bodySmall,
-                ),
-                const SizedBox(height: 24),
-                Text('Height Unit', style: theme.textTheme.titleSmall),
-                const SizedBox(height: 8),
-                unitRow(
-                  const Key('heightUnitPreference'),
-                  const [(HeightUnit.cm, 'cm'), (HeightUnit.ftIn, 'ft-in')],
-                  _height,
-                  (u) => _height = u,
-                ),
-              ],
-            ),
     );
   }
+}
+
+/// Compose's `Color.Gray`, Stance's hint and subtitle colour.
+const _gray = Color(0xFF888888);
+
+/// Stance's `ProfileSectionCard`: black at 30 %, 16 dp radius and padding.
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: const Color(0x4D000000),
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
+    ),
+  );
+}
+
+/// A `ProfileSectionCard` with a title and a row of [_UnitOptionRow]s.
+class _UnitSection<T> extends StatelessWidget {
+  const _UnitSection({
+    required this.title,
+    required this.rowKey,
+    required this.options,
+    required this.selected,
+    required this.onSelected,
+    this.hint,
+  });
+
+  final String title;
+  final Key rowKey;
+  final List<(T, String)> options;
+  final T selected;
+  final ValueChanged<T> onSelected;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return _SectionCard(
+      children: [
+        Text(title, style: theme.textTheme.titleMedium),
+        const SizedBox(height: 12),
+        Row(
+          key: rowKey,
+          children: [
+            for (final (i, (v, label)) in options.indexed) ...[
+              if (i > 0) const SizedBox(width: 12),
+              Expanded(
+                child: _UnitOptionRow(
+                  label: label,
+                  selected: v == selected,
+                  onTap: () => onSelected(v),
+                ),
+              ),
+            ],
+          ],
+        ),
+        if (hint != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              hint!,
+              style: theme.textTheme.bodySmall?.copyWith(color: _gray),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Stance's `UnitOptionRow`: a 12 dp pill at 4 % white with a check circle
+/// (primary) or an outlined circle (gray) and a semi-bold titleMedium label.
+class _UnitOptionRow extends StatelessWidget {
+  const _UnitOptionRow({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: StanceColors.cardFill,
+    borderRadius: BorderRadius.circular(12),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(
+              selected ? Icons.check_circle : Icons.circle_outlined,
+              color: selected ? StanceColors.primary : _gray,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// Stance's `StanceSmallButton` (Secondary): 32 dp tall, 20 dp radius,
+/// primary at 10 % with a 2 dp primary border, bold bodyMedium label.
+class _SmallButton extends StatelessWidget {
+  const _SmallButton({super.key, required this.text, required this.onTap});
+
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: const Color(0x1A792EFF),
+    shape: const StadiumBorder(
+      side: BorderSide(color: StanceColors.primary, width: 2),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 32),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ),
+      ),
+    ),
+  );
 }

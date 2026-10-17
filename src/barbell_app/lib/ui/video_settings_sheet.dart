@@ -17,51 +17,46 @@ Future<void> showVideoSettingsSheet(
         valueListenable: store,
         builder: (context, s, _) {
           final theme = Theme.of(context);
-          Widget row(String label, Widget control) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(children: [
-                  Expanded(child: Text(label, style: theme.textTheme.titleSmall)),
-                  control,
-                ]),
-              );
+          Widget row<T>(
+            String label,
+            List<(T, String)> options,
+            T selected,
+            ValueChanged<T> onSelected,
+          ) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(children: [
+              Expanded(child: Text(label, style: theme.textTheme.bodyLarge)),
+              for (final (value, text) in options)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: _Pill(
+                    text: text,
+                    selected: value == selected,
+                    onTap: () => onSelected(value),
+                  ),
+                ),
+            ]),
+          );
           return Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              row(
+              row<VideoLens>(
                 'Camera',
-                SegmentedButton<VideoLens>(
-                  segments: [
-                    for (final l in VideoLens.values)
-                      ButtonSegment(value: l, label: Text(l.label)),
-                  ],
-                  selected: {s.lens},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (v) => store.update(s.copyWith(lens: v.first)),
-                ),
+                [for (final l in VideoLens.values) (l, l.label)],
+                s.lens,
+                (v) => store.update(s.copyWith(lens: v)),
               ),
-              row(
+              row<VideoQuality>(
                 'Quality',
-                SegmentedButton<VideoQuality>(
-                  segments: [
-                    for (final q in VideoQuality.values)
-                      ButtonSegment(value: q, label: Text(q.label)),
-                  ],
-                  selected: {s.quality},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (v) => store.update(s.copyWith(quality: v.first)),
-                ),
+                [for (final q in VideoQuality.values) (q, q.label)],
+                s.quality,
+                (v) => store.update(s.copyWith(quality: v)),
               ),
-              row(
+              row<int>(
                 'Frame rate',
-                SegmentedButton<int>(
-                  segments: const [
-                    ButtonSegment(value: 30, label: Text('30')),
-                    ButtonSegment(value: 60, label: Text('60')),
-                  ],
-                  selected: {s.fps},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (v) => store.update(s.copyWith(fps: v.first)),
-                ),
+                const [(30, '30'), (60, '60')],
+                s.fps,
+                (v) => store.update(s.copyWith(fps: v)),
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
@@ -82,3 +77,33 @@ Future<void> showVideoSettingsSheet(
         },
       ),
     );
+
+/// Stance's `CameraControlPill` (PreRecordingScreen): a stadium at 8 %
+/// white, 12 x 6 dp padding, semi-bold labelMedium. Stance's pill shows the
+/// current value and opens a menu; here every option is a pill and the
+/// selected one is brighter (24 % white).
+class _Pill extends StatelessWidget {
+  const _Pill({required this.text, required this.selected, required this.onTap});
+
+  final String text;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: selected ? const Color(0x3DFFFFFF) : const Color(0x14FFFFFF),
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Text(text,
+                style: Theme.of(context)
+                    .textTheme
+                    .labelMedium
+                    ?.copyWith(fontWeight: FontWeight.w600)),
+          ),
+        ),
+      );
+}
