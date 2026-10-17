@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../workout/session_tags.dart';
+import 'stance_theme.dart';
 
-/// Stance's `SessionTagEditorSheet`: Block, Week, Day and Externals tags,
+const _sheetColor = Color(0xFF1C1C1E);
+
+/// Stance's `SessionTagEditorSheet` (container 0xFF1C1C1E, 20 dp side
+/// padding, 32 dp bottom): Block, Week, Day and Externals tags,
 /// one per section. Done and dismissing both keep the edits (Stance's
 /// dismiss handler also calls `onDone`). Returns the edited tags.
 ///
@@ -16,6 +20,7 @@ Future<List<String>> showSessionTagEditor(
     isScrollControlled: true,
     showDragHandle: true,
     useSafeArea: true,
+    backgroundColor: _sheetColor,
     builder: (context) => SessionTagEditor(
       initialTags: initialTags,
       onChanged: (tags) => edited = tags,
@@ -49,59 +54,94 @@ class _SessionTagEditorState extends State<SessionTagEditor> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(child: Text('Tags', style: theme.textTheme.titleLarge)),
-          TextButton(
-            key: const Key('tagEditorDone'),
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Done'),
-          ),
-        ]),
+        Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Tags', style: theme.textTheme.headlineSmall),
+              TextButton(
+                key: const Key('tagEditorDone'),
+                onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(foregroundColor: Colors.white),
+                child: const Text('Done'),
+              ),
+            ]),
         Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: Text(
             'Add tags to compare what matters to you. '
             'Tap to select or deselect.',
             style: theme.textTheme.bodyMedium
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ?.copyWith(color: StanceColors.subtitleGray),
           ),
         ),
         _section('Block', blockTags(_blockCount),
             onMore: () => setState(() => _blockCount += editorPageSize)),
+        const SizedBox(height: 16),
         _section('Week', weekTags(_weekCount),
             onMore: () => setState(() => _weekCount += editorPageSize)),
+        const SizedBox(height: 16),
         _section('Day', dayTags),
+        const SizedBox(height: 16),
         _section('Externals', externalTags),
       ]),
     );
   }
 
-  Widget _section(String title, List<String> options, {VoidCallback? onMore}) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            // Stance labels each chip with the raw tag, e.g. "Block:1".
-            for (final tag in options)
-              FilterChip(
-                key: ValueKey('tag-$tag'),
-                label: Text(tag),
-                selected: _tags.contains(tag),
-                showCheckmark: false,
-                onSelected: (_) => _toggle(tag),
-              ),
-            if (onMore != null)
-              ActionChip(
-                key: ValueKey('tagMore-$title'),
-                label: const Text('more…'),
-                onPressed: onMore,
-              ),
-          ]),
-        ]),
+  /// Stance's `TagSection`: title, then a wrapping row of 8 dp pills.
+  Widget _section(String title, List<String> options, {VoidCallback? onMore}) {
+    final theme = Theme.of(context);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title, style: theme.textTheme.titleSmall),
+      const SizedBox(height: 8),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        // Stance labels each chip with the raw tag, e.g. "Block:1".
+        for (final tag in options)
+          _pill(
+            key: ValueKey('tag-$tag'),
+            label: tag,
+            fill: _tags.contains(tag)
+                ? StanceColors.primary.withValues(alpha: 0.35)
+                : Colors.white.withValues(alpha: 0.08),
+            color: Colors.white,
+            onTap: () => _toggle(tag),
+          ),
+        if (onMore != null)
+          _pill(
+            key: ValueKey('tagMore-$title'),
+            label: 'more…',
+            fill: Colors.white.withValues(alpha: 0.12),
+            color: StanceColors.subtitleGray,
+            onTap: onMore,
+          ),
+      ]),
+    ]);
+  }
+
+  Widget _pill({
+    required Key key,
+    required String label,
+    required Color fill,
+    required Color color,
+    required VoidCallback onTap,
+  }) =>
+      Material(
+        key: key,
+        color: fill,
+        borderRadius: BorderRadius.circular(8),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            child: Text(label,
+                style: Theme.of(context)
+                    .textTheme
+                    .labelMedium
+                    ?.copyWith(color: color)),
+          ),
+        ),
       );
 }
 

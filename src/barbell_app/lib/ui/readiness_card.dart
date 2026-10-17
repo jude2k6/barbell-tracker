@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../workout/readiness.dart';
 import '../workout/session.dart';
 import 'format.dart';
+import 'stance_theme.dart';
 
 /// This set's speed against last session and the average at the same
 /// weight, with a Faster/Slower verdict, a speed strip and the history.
@@ -32,10 +33,48 @@ class ReadinessCard extends StatefulWidget {
 class _ReadinessCardState extends State<ReadinessCard> {
   bool _expanded = false;
 
+  /// Stance's `ReadinessColumn`: speed and unit, a 2 dp bar in the
+  /// column's colour, then the label.
+  Widget _stat(ThemeData theme, String label, double? v, Key key, Color bar,
+      {required bool primary}) {
+    final numberStyle = (primary
+            ? theme.textTheme.headlineMedium
+            : theme.textTheme.titleLarge)
+        .tabular;
+    return Expanded(
+      flex: primary ? 130 : 90,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Flexible(
+                child: Text(v == null ? '--' : fmtVelocity(v),
+                    key: key, maxLines: 1, style: numberStyle),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(left: 2, bottom: 3),
+                child: Text('m/s', style: theme.textTheme.bodyMedium),
+              ),
+            ]),
+        Container(
+          height: 2,
+          margin: const EdgeInsets.symmetric(vertical: 2),
+          decoration: BoxDecoration(
+              color: bar, borderRadius: BorderRadius.circular(2)),
+        ),
+        Text(label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall
+                ?.copyWith(color: StanceColors.subtitleGray)),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final r = widget.result;
     final set = widget.set;
     final current = readinessSpeed(set);
@@ -48,62 +87,42 @@ class _ReadinessCardState extends State<ReadinessCard> {
             setType: set.setType,
             weightLabel: fmtWeight(set.weight, set.unit),
           );
-    final numberStyle = theme.textTheme.titleMedium.tabular;
-
-    Widget stat(String label, double? v, Key key) => Expanded(
-          child: Column(children: [
-            Text(v == null ? '--' : fmtVelocity(v), key: key, style: numberStyle),
-            Text(label, style: theme.textTheme.labelSmall),
-          ]),
-        );
+    final grayMedium = theme.textTheme.bodyMedium
+        ?.copyWith(color: StanceColors.subtitleGray);
 
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Readiness at ${fmtWeight(set.weight, set.unit)} (m/s)',
-                style: theme.textTheme.titleSmall),
-            const SizedBox(height: 8),
-            Row(children: [
-              stat('This Session', current, const Key('readinessThis')),
-              stat('Last Session', r.lastSessionSpeed,
-                  const Key('readinessLast')),
-              stat('Average', r.historicAverage, const Key('readinessAvg')),
-            ]),
-            if (!r.hasHistory) ...[
-              const SizedBox(height: 8),
-              Text('No historical data available',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: scheme.onSurfaceVariant)),
-            ],
-            if (comparison != null) ...[
-              const SizedBox(height: 8),
-              Row(children: [
-                Icon(
-                  comparison.isFaster
-                      ? Icons.trending_up
-                      : Icons.trending_down,
-                  color: comparison.isFaster ? scheme.primary : scheme.error,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text.rich(
-                    key: const Key('readinessComparison'),
-                    TextSpan(children: [
-                      TextSpan(
-                          text: '${comparison.title}. ',
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
-                      TextSpan(text: comparison.description),
-                    ]),
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ),
-              ]),
-            ],
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('Readiness at ${fmtWeight(set.weight, set.unit)} (m/s)',
+                  style: theme.textTheme.bodyLarge),
+            ),
+            if (comparison != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _ComparisonBanner(
+                    comparison: comparison, textStyle: grayMedium),
+              ),
+            Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _stat(theme, 'This Session', current,
+                      const Key('readinessThis'), StanceColors.primary,
+                      primary: true),
+                  const SizedBox(width: 6),
+                  _stat(theme, 'Last Session', r.lastSessionSpeed,
+                      const Key('readinessLast'), StanceColors.primaryLight,
+                      primary: false),
+                  const SizedBox(width: 6),
+                  _stat(theme, 'Average', r.historicAverage,
+                      const Key('readinessAvg'), StanceColors.primaryVariant,
+                      primary: false),
+                ]),
             if (current != null && r.hasHistory) ...[
               const SizedBox(height: 12),
               ReadinessStrip(
@@ -113,6 +132,16 @@ class _ReadinessCardState extends State<ReadinessCard> {
                 average: r.historicAverage,
               ),
             ],
+            const SizedBox(height: 8),
+            Container(height: 1, color: Colors.white.withValues(alpha: 0.12)),
+            if (!r.hasHistory)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text('No historical data available',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                        color: StanceColors.subtitleGray,
+                        fontStyle: FontStyle.italic)),
+              ),
             if (r.points.isNotEmpty) ...[
               Align(
                 alignment: Alignment.centerRight,
@@ -125,17 +154,22 @@ class _ReadinessCardState extends State<ReadinessCard> {
                 for (final p in r.points)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(children: [
+                    child: Row(spacing: 4, children: [
+                      Text(fmtVelocity(p.speed),
+                          style: theme.textTheme.bodyLarge.tabular),
+                      Text('m/s', style: theme.textTheme.bodyMedium),
+                      Text('(${daysAgoText(p.date, widget.now ?? DateTime.now())})',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                              color: StanceColors.subtitleGray
+                                  .withValues(alpha: 0.7))),
                       Expanded(
                         child: Text(
-                          '${daysAgoText(p.date, widget.now ?? DateTime.now())}'
-                          ' · ${fmtDate(p.date)}'
+                          '${fmtDate(p.date)}'
                           '${p.sessionLabel.isEmpty ? '' : ' · ${p.sessionLabel}'}',
-                          style: theme.textTheme.bodySmall,
+                          textAlign: TextAlign.end,
+                          style: grayMedium,
                         ),
                       ),
-                      Text('${fmtVelocity(p.speed)} m/s',
-                          style: theme.textTheme.bodySmall.tabular),
                     ]),
                   ),
             ],
@@ -146,7 +180,81 @@ class _ReadinessCardState extends State<ReadinessCard> {
   }
 }
 
-/// Stance's speed strip: earlier sessions as thin grey marks, the average
+/// Stance's `ComparisonBanner` / `readinessBannerChrome`: 16 dp radius,
+/// 0xFF201B28 plus primary at 8 %, 1 dp pink-to-primary border; a purple
+/// pill with the verdict, "Let's go!" when faster, then the description.
+class _ComparisonBanner extends StatelessWidget {
+  const _ComparisonBanner({required this.comparison, required this.textStyle});
+
+  final ReadinessComparison comparison;
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    const purple1 = Color(0xFF915EEB);
+    return Container(
+      padding: const EdgeInsets.all(1),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+            colors: [Color(0xFFF415C3), StanceColors.primary]),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15),
+          color: Color.alphaBlend(
+              StanceColors.primary.withValues(alpha: 0.08),
+              const Color(0xFF201B28)),
+        ),
+        child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(spacing: 8, children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF782EFD).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, spacing: 2, children: [
+                    Icon(
+                        comparison.isFaster
+                            ? Icons.bolt
+                            : Icons.hourglass_bottom,
+                        size: 14,
+                        color: purple1),
+                    Text(comparison.title,
+                        style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: purple1)),
+                  ]),
+                ),
+                if (comparison.isFaster)
+                  Text("Let's go!",
+                      style: theme.textTheme.bodyLarge
+                          ?.copyWith(fontWeight: FontWeight.w600)),
+              ]),
+              const SizedBox(height: 8),
+              Container(
+                key: const Key('readinessComparison'),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0x0AFFFFFF),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(comparison.description, style: textStyle),
+              ),
+            ]),
+      ),
+    );
+  }
+}
+
+/// Stance's `ReadinessSpeedStripChart`: earlier sessions as thin grey marks, the average
 /// as a dashed line, last session and this set as wider bars.
 class ReadinessStrip extends StatelessWidget {
   const ReadinessStrip({
@@ -164,18 +272,19 @@ class ReadinessStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final values = [
       ...history,
       for (final v in [current, lastSession, average])
         if (v != null && v > 0) v,
     ].map(_round2).toList();
     final lo = values.reduce(math.min), hi = values.reduce(math.max);
-    final labelStyle = theme.textTheme.labelSmall
-        ?.copyWith(color: scheme.onSurfaceVariant, fontFeatures: tabularFigures);
+    final labelStyle = theme.textTheme.labelSmall?.copyWith(
+        color: StanceColors.subtitleGray,
+        fontWeight: FontWeight.w500,
+        fontFeatures: tabularFigures);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SizedBox(
-        height: 40,
+        height: 30,
         child: CustomPaint(
           painter: _StripPainter(
             lo: lo,
@@ -184,11 +293,11 @@ class ReadinessStrip extends StatelessWidget {
             current: current,
             lastSession: lastSession,
             average: average,
-            track: scheme.onSurface.withValues(alpha: 0.04),
-            historyColor: Colors.grey,
-            averageColor: scheme.primary.withValues(alpha: 0.7),
-            lastColor: scheme.primary.withValues(alpha: 0.5),
-            currentColor: scheme.primary,
+            track: Colors.white.withValues(alpha: 0.04),
+            historyColor: const Color(0xFF888888),
+            averageColor: StanceColors.primaryVariant,
+            lastColor: StanceColors.primaryLight,
+            currentColor: StanceColors.primary,
           ),
           child: const SizedBox.expand(),
         ),

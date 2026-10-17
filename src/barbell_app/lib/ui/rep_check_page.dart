@@ -8,8 +8,10 @@ import '../workout/session.dart';
 import 'charts/velocity_chart.dart';
 import 'format.dart';
 import 'guides.dart';
+import 'stance_theme.dart';
+import 'stance_widgets.dart';
 
-/// Stance's Rep Check (notes §17): the set's reps as markers on its
+/// Stance's Rep Check (`RepCheckSheet`, notes §17): the set's reps as markers on its
 /// velocity trace. Drag a rep's start and end, delete a rep, or add one by
 /// setting a start and end time with the scrubber. Adds and deletes are
 /// saved at once through [onCommit]; moved markers on Save.
@@ -171,93 +173,137 @@ class _RepCheckPageState extends State<RepCheckPage> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Rep Check'),
-          actions: [
-            IconButton(
-              tooltip: 'Guide',
-              icon: const Icon(Icons.help_outline),
-              onPressed: () => showGuide(context, repEditGuideSteps),
-            ),
-            TextButton(
-              key: const Key('saveMarkers'),
-              onPressed: _dirty && !_saving ? () => _commit(_markers) : null,
-              child: const Text('Save'),
-            ),
+        body: SafeArea(
+          child: Column(children: [
+            _header(theme),
+            Expanded(child: _content(theme, editable)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  /// Stance's sheet header: Save on the left, the title centred, Done on
+  /// the right (Done leaves, asking about unsaved changes first).
+  Widget _header(ThemeData theme) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: Stack(alignment: Alignment.center, children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _SmallButton('Save',
+                key: const Key('saveMarkers'),
+                primary: true,
+                onPressed: _dirty && !_saving ? () => _commit(_markers) : null),
+          ),
+          Text('Rep Check',
+              textAlign: TextAlign.center, style: theme.textTheme.titleMedium),
+          Align(
+            alignment: Alignment.centerRight,
+            child: _SmallButton('Done',
+                onPressed: () => Navigator.of(context).maybePop()),
+          ),
+        ]),
+      );
+
+  Widget _content(ThemeData theme, bool editable) {
+    if (!editable) {
+      return Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('No velocity data available',
+              style: theme.textTheme.titleMedium
+                  ?.copyWith(color: StanceColors.subtitleGray)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+            child: Text(
+                'Velocity data is needed to check rep shapes. This data may '
+                'not be available for older sets.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(color: StanceColors.subtitleGray)),
+          ),
+        ]),
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: CircleIconButton(
+            icon: Icons.help_outline,
+            tooltip: 'Guide',
+            onPressed: () => showGuide(context, repEditGuideSteps),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            'Check each rep against the velocity chart. Drag a marker to '
+            'adjust its start and end, or add and delete reps, then save '
+            'your changes.',
+            style: theme.textTheme.bodyMedium
+                ?.copyWith(color: StanceColors.subtitleGray),
+          ),
+        ),
+        VelocityChart(
+          velocity: _set.velocityTrace,
+          hz: _set.traceHz!,
+          reps: [
+            for (final (i, m) in _markers.indexed)
+              RepWindow(i + 1, m.startSec, m.endSec),
           ],
         ),
-        body: !editable
-            ? const Padding(
-                padding: EdgeInsets.all(24),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Text('No velocity data available'),
-                  SizedBox(height: 8),
-                  Text('Velocity data is needed to check rep shapes. This data may '
-                      'not be available for older sets.'),
-                ]),
-              )
-            : ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  Text(
-                    'Check each rep against the velocity chart. Drag a marker to '
-                    'adjust its start and end, or add and delete reps, then save '
-                    'your changes.',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 12),
-                  VelocityChart(
-                    velocity: _set.velocityTrace,
-                    hz: _set.traceHz!,
-                    reps: [
-                      for (final (i, m) in _markers.indexed)
-                        RepWindow(i + 1, m.startSec, m.endSec),
-                    ],
-                  ),
-                  if (_saving) const LinearProgressIndicator(),
-                  const SizedBox(height: 8),
-                  for (final (i, m) in _markers.indexed) _repRow(theme, i, m),
-                  const Divider(height: 32),
-                  Text('Add Rep', style: theme.textTheme.titleSmall),
-                  Row(children: [
-                    Expanded(
-                      child: Slider(
-                        key: const Key('scrubber'),
-                        value: _scrub.clamp(0, _duration),
-                        max: _duration,
-                        onChanged: (v) => setState(() => _scrub = v),
-                      ),
-                    ),
-                    Text('${_scrub.toStringAsFixed(2)} s',
-                        style: theme.textTheme.bodyMedium.tabular),
-                  ]),
-                  Wrap(spacing: 8, runSpacing: 4, children: [
-                    OutlinedButton(
-                      key: const Key('setStart'),
-                      onPressed: _setStart,
-                      child: Text(_addStart == null
-                          ? 'Set start time'
-                          : 'Start: ${_addStart!.toStringAsFixed(2)} s'),
-                    ),
-                    OutlinedButton(
-                      key: const Key('setEnd'),
-                      onPressed: _addStart == null ? null : _setEnd,
-                      child: Text(_addEnd == null
-                          ? 'Set end time'
-                          : 'End: ${_addEnd!.toStringAsFixed(2)} s'),
-                    ),
-                    FilledButton(
-                      key: const Key('addRep'),
-                      onPressed: _addStart != null && _addEnd != null && !_saving
-                          ? () => _commit(
-                              [..._markers, RepMarker(_addStart!, _addEnd!)])
-                          : null,
-                      child: const Text('Add Rep'),
-                    ),
-                  ]),
-                ],
+        if (_saving) ...[
+          const SizedBox(height: 8),
+          const LinearProgressIndicator(),
+        ],
+        const SizedBox(height: 8),
+        for (final (i, m) in _markers.indexed) _repRow(theme, i, m),
+        const SizedBox(height: 16),
+        Text('Add Rep', style: theme.textTheme.titleSmall),
+        Row(children: [
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: StanceColors.primary,
+                thumbColor: StanceColors.primary,
+                inactiveTrackColor: Colors.white.withValues(alpha: 0.2),
               ),
-      ),
+              child: Slider(
+                key: const Key('scrubber'),
+                value: _scrub.clamp(0, _duration),
+                max: _duration,
+                onChanged: (v) => setState(() => _scrub = v),
+              ),
+            ),
+          ),
+          Text('${_scrub.toStringAsFixed(2)} s',
+              style: theme.textTheme.bodyMedium.tabular),
+        ]),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          OutlinedButton(
+            key: const Key('setStart'),
+            onPressed: _setStart,
+            child: Text(_addStart == null
+                ? 'Set start time'
+                : 'Start: ${_addStart!.toStringAsFixed(2)} s'),
+          ),
+          OutlinedButton(
+            key: const Key('setEnd'),
+            onPressed: _addStart == null ? null : _setEnd,
+            child: Text(_addEnd == null
+                ? 'Set end time'
+                : 'End: ${_addEnd!.toStringAsFixed(2)} s'),
+          ),
+          FilledButton(
+            key: const Key('addRep'),
+            onPressed: _addStart != null && _addEnd != null && !_saving
+                ? () => _commit([..._markers, RepMarker(_addStart!, _addEnd!)])
+                : null,
+            child: const Text('Add Rep'),
+          ),
+        ]),
+      ],
     );
   }
 
@@ -266,16 +312,26 @@ class _RepCheckPageState extends State<RepCheckPage> {
     final lo = i == 0 ? 0.0 : _markers[i - 1].endSec;
     final hi = i == _markers.length - 1 ? _duration : _markers[i + 1].startSec;
     final rep = i < _set.reps.length ? _set.reps[i] : null;
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    // Stance's `RepMarkerRow`: a card, "Rep N" semibold, times in gray.
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+          color: StanceColors.cardFill,
+          borderRadius: BorderRadius.circular(16)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(children: [
-        Text('Rep ${i + 1}', style: theme.textTheme.titleSmall),
+        Text('Rep ${i + 1}',
+            style: theme.textTheme.bodyLarge
+                ?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             'R${i + 1}s ${m.startSec.toStringAsFixed(2)} s · '
             'R${i + 1}e ${m.endSec.toStringAsFixed(2)} s'
             '${rep == null || _dirty ? '' : ' · ${fmtVelocity(rep.meanVelocity)} m/s'}',
-            style: theme.textTheme.bodySmall.tabular,
+            style: theme.textTheme.bodyMedium.tabular
+                ?.copyWith(color: StanceColors.subtitleGray),
           ),
         ),
         IconButton(
@@ -299,6 +355,49 @@ class _RepCheckPageState extends State<RepCheckPage> {
             });
           },
         ),
-    ]);
+    ]),
+    );
   }
+}
+
+/// Stance's `StanceSmallButton` (private copy, also in the RPE profile
+/// page): 20 dp radius, min 32 dp; primary is filled, secondary is
+/// primary at 10 % with a 2 dp primary border.
+class _SmallButton extends StatelessWidget {
+  const _SmallButton(this.label,
+      {super.key, required this.onPressed, this.primary = false});
+
+  final String label;
+  final bool primary;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => Opacity(
+        opacity: onPressed == null ? 0.4 : 1,
+        child: Material(
+          color: primary
+              ? StanceColors.primary
+              : StanceColors.primary.withValues(alpha: 0.1),
+          shape: StadiumBorder(
+              side: primary
+                  ? BorderSide.none
+                  : const BorderSide(color: StanceColors.primary, width: 2)),
+          child: InkWell(
+            customBorder: const StadiumBorder(),
+            onTap: onPressed,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 32),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: Center(
+                  widthFactor: 1,
+                  child: Text(label,
+                      style: Theme.of(context).textTheme.labelMedium),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 }

@@ -5,9 +5,12 @@ import '../workout/session.dart';
 import 'app_scope.dart';
 import 'charts/rpe_profile_chart.dart';
 import 'format.dart';
+import 'stance_theme.dart';
 
 /// Every RPE tag for one exercise, grouped by RPE, with edit and remove.
-/// Port of Stance's RPE profile manager sheet.
+/// Port of Stance's `RpeProfileManagerSheet` (headline title with a Done
+/// pill, gray subtitle, Sort by tabs, RPE-coloured group headers and
+/// card rows with Edit and Delete pills).
 class RpeProfilePage extends StatefulWidget {
   const RpeProfilePage({
     super.key,
@@ -91,94 +94,188 @@ class _RpeProfilePageState extends State<RpeProfilePage> {
         : buildRpeProfile(sessions, exerciseId: widget.exerciseId);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit RPE profile')),
-      body: sessions == null
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Text(widget.exerciseTitle, style: theme.textTheme.titleMedium),
-                Text('Review and clean up every RPE tag for this exercise.',
-                    style: theme.textTheme.bodySmall),
-                if (profile != null && !profile.isEmpty) ...[
-                  const SizedBox(height: 16),
-                  Text('Speed-intensity profile',
-                      style: theme.textTheme.titleSmall),
-                  const SizedBox(height: 8),
-                  RpeProfileChart(profile: profile),
-                ],
-                const SizedBox(height: 16),
-                if (groups.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(
-                        child: Text('No RPE tags for this exercise yet')),
-                  )
-                else ...[
+      body: SafeArea(
+        child: sessions == null
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                children: [
                   Row(children: [
-                    Text('Sort by', style: theme.textTheme.labelLarge),
-                    const SizedBox(width: 12),
                     Expanded(
-                      child: SegmentedButton<RpeProfileSort>(
-                        segments: [
-                          for (final s in RpeProfileSort.values)
-                            ButtonSegment(value: s, label: Text(s.label)),
-                        ],
-                        selected: {_sort},
-                        showSelectedIcon: false,
-                        onSelectionChanged: (v) =>
-                            setState(() => _sort = v.first),
-                      ),
+                        child: Text('Edit RPE Profile',
+                            style: theme.textTheme.headlineLarge)),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, top: 14),
+                      child: _SmallButton('Done',
+                          primary: true,
+                          onPressed: () => Navigator.of(context).pop()),
                     ),
                   ]),
-                  for (final g in groups) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                        'Review and clean up every RPE tag for this exercise.',
+                        style: theme.textTheme.bodyLarge
+                            ?.copyWith(color: StanceColors.subtitleGray)),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(widget.exerciseTitle,
+                      style: theme.textTheme.titleMedium),
+                  if (profile != null && !profile.isEmpty) ...[
                     const SizedBox(height: 16),
-                    Row(children: [
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: rpeColor(g.rpe),
-                          shape: BoxShape.circle,
+                    Text('Speed-intensity profile',
+                        style: theme.textTheme.titleSmall),
+                    const SizedBox(height: 8),
+                    RpeProfileChart(profile: profile),
+                  ],
+                  const SizedBox(height: 12),
+                  if (groups.isEmpty)
+                    Container(
+                      height: 240,
+                      alignment: Alignment.center,
+                      child: Text('No RPE tags for this exercise yet',
+                          style: theme.textTheme.bodyLarge
+                              ?.copyWith(color: StanceColors.subtitleGray)),
+                    )
+                  else ...[
+                    Row(spacing: 8, children: [
+                      Text('Sort by',
+                          style: theme.textTheme.labelSmall
+                              ?.copyWith(color: StanceColors.subtitleGray)),
+                      Expanded(
+                        child: _SegmentedTabs(
+                          labels: [for (final s in RpeProfileSort.values) s.label],
+                          selected: RpeProfileSort.values.indexOf(_sort),
+                          onSelected: (i) => setState(
+                              () => _sort = RpeProfileSort.values[i]),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text('RPE ${fmtRpe(g.rpe)}',
-                          style: theme.textTheme.titleSmall),
                     ]),
-                    for (final row in g.rows)
-                      ListTile(
-                        key: ValueKey('rpeRow-${row.setId}'),
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        title: Text(
-                          [
-                            fmtShortDate(row.date),
-                            fmtWeight(row.weight, row.unit),
-                            if (row.lastRepSpeed != null)
-                              '${fmtVelocity(row.lastRepSpeed)} m/s',
-                          ].join(' · '),
-                          style: theme.textTheme.bodyMedium.tabular,
-                        ),
-                        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                          IconButton(
-                            tooltip: 'Edit',
-                            icon: const Icon(Icons.edit_outlined),
-                            onPressed: () => _edit(row),
-                          ),
-                          IconButton(
-                            tooltip: 'Delete',
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () => _delete(row),
-                          ),
-                        ]),
+                    const SizedBox(height: 12),
+                    for (final g in groups) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8, bottom: 8),
+                        child: Text('RPE ${fmtRpe(g.rpe)}',
+                            style: theme.textTheme.titleMedium
+                                ?.copyWith(color: rpeColor(g.rpe))),
                       ),
+                      for (final row in g.rows)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _row(theme, row),
+                        ),
+                    ],
                   ],
                 ],
-              ],
-            ),
+              ),
+      ),
     );
   }
+
+  /// Stance's `RpeProfileRowView`: a card with the summary line and the
+  /// Edit and Delete pills.
+  Widget _row(ThemeData theme, RpeProfileRow row) => Container(
+        key: ValueKey('rpeRow-${row.setId}'),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+            color: StanceColors.cardFill,
+            borderRadius: BorderRadius.circular(16)),
+        child: Row(spacing: 8, children: [
+          Expanded(
+            child: Text(
+              [
+                fmtShortDate(row.date),
+                fmtWeight(row.weight, row.unit),
+                if (row.lastRepSpeed != null)
+                  '${fmtVelocity(row.lastRepSpeed)} m/s',
+              ].join(' · '),
+              maxLines: 1,
+              style: theme.textTheme.labelSmall.tabular,
+            ),
+          ),
+          _SmallButton('Edit', onPressed: () => _edit(row)),
+          _SmallButton('Delete', onPressed: () => _delete(row)),
+        ]),
+      );
+}
+
+/// Stance's `StanceSmallButton`: 20 dp radius, min 32 dp tall; primary is
+/// filled, secondary is primary at 10 % with a 2 dp primary border.
+class _SmallButton extends StatelessWidget {
+  const _SmallButton(this.label, {required this.onPressed, this.primary = false});
+
+  final String label;
+  final bool primary;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: primary
+            ? StanceColors.primary
+            : StanceColors.primary.withValues(alpha: 0.1),
+        shape: StadiumBorder(
+            side: primary
+                ? BorderSide.none
+                : const BorderSide(color: StanceColors.primary, width: 2)),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onPressed,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 32),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Center(
+                widthFactor: 1,
+                child: Text(label,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.labelMedium),
+              ),
+            ),
+          ),
+        ),
+      );
+}
+
+/// Stance's `StanceSegmentedTabs`: 32 dp track at white 6 % (8 dp radius,
+/// 2 dp padding); 28 dp segments, the selected one white at 16 %.
+class _SegmentedTabs extends StatelessWidget {
+  const _SegmentedTabs(
+      {required this.labels, required this.selected, required this.onSelected});
+
+  final List<String> labels;
+  final int selected;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        height: 32,
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(8)),
+        child: Row(children: [
+          for (final (i, label) in labels.indexed)
+            Expanded(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => onSelected(i),
+                child: Container(
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                      color: i == selected
+                          ? Colors.white.withValues(alpha: 0.16)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(6)),
+                  child: Text(label,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: i == selected
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.7))),
+                ),
+              ),
+            ),
+        ]),
+      );
 }
 
 class _EditRpeDialog extends StatefulWidget {
@@ -195,7 +292,7 @@ class _EditRpeDialogState extends State<_EditRpeDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Edit RPE'),
+      title: Text('Edit RPE', style: Theme.of(context).textTheme.headlineMedium),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
         const Text('Adjust the RPE for this set.'),
         const SizedBox(height: 12),
