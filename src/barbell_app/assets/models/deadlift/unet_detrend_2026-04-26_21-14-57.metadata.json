@@ -1,0 +1,20 @@
+{
+  "window_samples": 2000,
+  "base_ch": 16,
+  "source_run": "2026-04-26_21-14-57_run",
+  "source_model": "unet_production.pt",
+  "sample_rate_hz": 200,
+  "input_name": "velocity",
+  "input_shape": [
+    1,
+    1,
+    2000
+  ],
+  "input_kind": "vertical_velocity_m_per_s",
+  "output_kind": "reconstructed_velocity_m_per_s",
+  "format": "litert",
+  "stride_train": 500,
+  "stride_test": 100,
+  "is_production": true,
+  "timestamp": "2026-04-26_21-14-57"
+}
