@@ -50,7 +50,10 @@ class DevicePage extends StatelessWidget {
               return Column(
                 children: [
                   if (permissions != null)
-                    BluetoothAccessBanner(service: permissions),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      child: BluetoothAccessBanner(service: permissions),
+                    ),
                   if (sensor.state == LinkState.failed ||
                       sensor.lastError != null)
                     ListTile(

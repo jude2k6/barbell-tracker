@@ -32,7 +32,10 @@ void main() {
       home: Scaffold(
         body: Builder(
           builder: (context) => ListView(
-              children: exerciseListChildren(context, (_) {})),
+              children: exerciseListChildren(context,
+                  group: ExerciseFamily.deadlift,
+                  onGroup: (_) {},
+                  onExercise: (_) {})),
         ),
       ),
     ));

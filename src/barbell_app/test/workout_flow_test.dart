@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:barbell_app/analysis/exercises.dart';
 import 'package:barbell_app/recording/recording.dart';
 import 'package:barbell_app/ui/app_scope.dart';
+import 'package:barbell_app/ui/exercise_list.dart';
 import 'package:barbell_app/ui/home_page.dart';
 import 'package:barbell_app/ui/record_set_page.dart';
 import 'package:barbell_app/ui/session_feedback_page.dart';
@@ -121,25 +122,34 @@ void main() {
           child: MaterialApp(home: home),
         );
 
-    testWidgets('Home lists every exercise; tapping one opens its Sessions',
-        (tester) async {
+    testWidgets('Home lists the groups; a group lists its exercises; '
+        'tapping one opens its Sessions', (tester) async {
       await tester.pumpWidget(app(const HomePage()));
       expect(find.text('Exercise'), findsOneWidget);
-      expect(find.text('Squat'), findsOneWidget);
-      for (final e in Exercise.all) {
-        final tile = find.byKey(ValueKey('exercise-${e.id}'));
-        if (e.id == 'bench_competition') {
-          // Below the import card, the Bench heading needs a scroll.
-          await tester.scrollUntilVisible(find.text('Bench'), 200);
-          await tester.pump();
-          expect(find.text('Bench'), findsOneWidget);
-        }
-        await tester.scrollUntilVisible(tile, 200);
-        // ensureVisible jumps without a frame; lay out before the next step.
+      for (final f in ExerciseFamily.values) {
+        final group = find.byKey(ValueKey('group-${f.name}'));
+        await tester.scrollUntilVisible(group, 200);
         await tester.pump();
-        expect(tile, findsOneWidget);
+        await tester.tap(group);
+        await tester.pump();
+        expect(find.text(familyTitle(f)), findsOneWidget);
+        for (final e in Exercise.all.where((e) => e.family == f)) {
+          final tile = find.byKey(ValueKey('exercise-${e.id}'));
+          await tester.scrollUntilVisible(tile, 200);
+          // ensureVisible jumps without a frame; lay out before the next step.
+          await tester.pump();
+          expect(tile, findsOneWidget);
+        }
+        if (f != ExerciseFamily.deadlift) {
+          await tester.tap(find.byKey(const Key('homeBack')));
+          await tester.pump();
+          expect(find.text('Exercise'), findsOneWidget);
+        }
       }
-      await tester.tap(find.byKey(const ValueKey('exercise-deadlift_sumo')));
+      final sumo = find.byKey(const ValueKey('exercise-deadlift_sumo'));
+      await tester.scrollUntilVisible(sumo, -200);
+      await tester.pump();
+      await tester.tap(sumo);
       await _navigate(tester);
       expect(tester.widget<SessionsPage>(find.byType(SessionsPage)).exercise.id,
           'deadlift_sumo');
@@ -229,6 +239,8 @@ void main() {
     /// Home → Sessions → [pages] on top, then [showFeedbackAfterSet].
     Future<NavigatorState> stack(WidgetTester tester) async {
       await tester.pumpWidget(app(const HomePage()));
+      await tester.tap(find.byKey(const ValueKey('group-squat')));
+      await tester.pump();
       await tester.tap(find.byKey(const ValueKey('exercise-squat_low_bar')));
       await _navigate(tester);
       return tester.state<NavigatorState>(find.byType(Navigator));

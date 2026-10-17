@@ -1,34 +1,40 @@
 import 'package:flutter/material.dart';
 
 import '../analysis/exercises.dart';
+import 'stance_theme.dart';
 
-/// Exercise catalogue grouped by family (Squat / Bench / Deadlift), as
-/// children for a parent [ListView].
+/// Stance's Home catalogue: the root lists the three groups; a group
+/// lists its exercises, with [DeadliftTipsCard] after the deadlift ones.
+/// Rows for a parent [ListView] with 12 dp between them.
 List<Widget> exerciseListChildren(
-    BuildContext context, ValueChanged<Exercise> onTap) {
-  final theme = Theme.of(context);
+  BuildContext context, {
+  required ExerciseFamily? group,
+  required ValueChanged<ExerciseFamily> onGroup,
+  required ValueChanged<Exercise> onExercise,
+}) {
+  final rows = group == null
+      ? [
+          for (final f in ExerciseFamily.values)
+            ExerciseCatalogRow(
+              key: ValueKey('group-${f.name}'),
+              title: familyTitle(f),
+              badge: familyBadge(f),
+              onTap: () => onGroup(f),
+            ),
+        ]
+      : [
+          for (final e in Exercise.all.where((e) => e.family == group))
+            ExerciseCatalogRow(
+              key: ValueKey('exercise-${e.id}'),
+              title: e.shortTitle,
+              badge: familyBadge(e.family),
+              onTap: () => onExercise(e),
+            ),
+          if (group == ExerciseFamily.deadlift) const DeadliftTipsCard(),
+        ];
   return [
-    for (final family in ExerciseFamily.values) ...[
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
-        child: Row(children: [
-          Icon(familyIcon(family), size: 20, color: theme.colorScheme.primary),
-          const SizedBox(width: 8),
-          Text(familyTitle(family),
-              style: theme.textTheme.titleMedium
-                  ?.copyWith(color: theme.colorScheme.primary)),
-        ]),
-      ),
-      for (final e in Exercise.all.where((e) => e.family == family))
-        ListTile(
-          key: ValueKey('exercise-${e.id}'),
-          title: Text(e.shortTitle),
-          subtitle: Text(e.rawValue),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => onTap(e),
-        ),
-      if (family == ExerciseFamily.deadlift) const DeadliftTipsCard(),
-    ],
+    for (final (i, row) in rows.indexed)
+      Padding(padding: EdgeInsets.only(top: i == 0 ? 0 : 12), child: row),
   ];
 }
 
@@ -38,11 +44,90 @@ String familyTitle(ExerciseFamily f) => switch (f) {
       ExerciseFamily.deadlift => 'Deadlift',
     };
 
-IconData familyIcon(ExerciseFamily f) => switch (f) {
-      ExerciseFamily.squat => Icons.accessibility_new,
-      ExerciseFamily.bench => Icons.airline_seat_flat,
-      ExerciseFamily.deadlift => Icons.fitness_center,
-    };
+/// Stance's `ExerciseCatalog` badges: only the deadlift group (and its
+/// exercises) is BETA.
+String? familyBadge(ExerciseFamily f) =>
+    f == ExerciseFamily.deadlift ? 'BETA' : null;
+
+/// Stance's `ExerciseCatalogRow`: a 16 dp card at 4 % white with the
+/// exercise photo, the title and badge, and a bordered arrow box.
+class ExerciseCatalogRow extends StatelessWidget {
+  const ExerciseCatalogRow(
+      {super.key, required this.title, this.badge, required this.onTap});
+
+  final String title;
+  final String? badge;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: StanceColors.cardFill,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 72),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image.asset('assets/images/exercise_sample.png',
+                    width: 48, height: 48, fit: BoxFit.cover),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(title,
+                        style: theme.textTheme.bodyLarge
+                            ?.copyWith(fontWeight: FontWeight.w600)),
+                    if (badge case final b?) _Badge(b),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Container(
+                width: 60,
+                height: 48,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0x1AFFFFFF)),
+                ),
+                child: const Icon(Icons.arrow_forward, color: Colors.white),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Stance's `ExerciseBadge`.
+class _Badge extends StatelessWidget {
+  const _Badge(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0x14FFFFFF),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(text,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w500, color: const Color(0x99FFFFFF))),
+      );
+}
 
 /// Stance's `home_deadlift_tip_*` strings, in its display order.
 const deadliftTips = [
@@ -60,30 +145,25 @@ class DeadliftTipsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-      child: Card(
-        key: const Key('deadliftTips'),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Tips:', style: theme.textTheme.titleSmall),
-                for (final tip in deadliftTips) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('\u2022'),
-                        const SizedBox(width: 10),
-                        Expanded(child: Text(tip)),
-                      ]),
-                ],
-              ]),
-        ),
+    final body = Theme.of(context).textTheme.bodyLarge;
+    return Container(
+      key: const Key('deadliftTips'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: StanceColors.secondary.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(20),
       ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Tips:', style: body?.copyWith(fontWeight: FontWeight.w600)),
+        for (final tip in deadliftTips) ...[
+          const SizedBox(height: 12),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('•', style: body),
+            const SizedBox(width: 10),
+            Expanded(child: Text(tip, style: body)),
+          ]),
+        ],
+      ]),
     );
   }
 }

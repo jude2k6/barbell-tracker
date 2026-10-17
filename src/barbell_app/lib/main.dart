@@ -5,6 +5,7 @@ import 'recording/recording.dart';
 import 'ui/app_scope.dart';
 import 'sensor/witmotion/witmotion_scan.dart';
 import 'ui/home_page.dart';
+import 'ui/stance_theme.dart';
 import 'video/video_settings.dart';
 import 'workout/file_log.dart';
 import 'workout/preferences.dart';
@@ -59,7 +60,6 @@ class _BarbellAppState extends State<BarbellApp> {
 
   @override
   Widget build(BuildContext context) {
-    const seed = Color(0xFF2E7D6B);
     return AppScope(
       sensor: _sensor,
       sessions: _sessions,
@@ -70,8 +70,8 @@ class _BarbellAppState extends State<BarbellApp> {
       savedSensor: _savedSensor,
       child: MaterialApp(
         title: 'Barbell Tracker',
-        theme: ThemeData(colorSchemeSeed: seed, brightness: Brightness.light),
-        darkTheme: ThemeData(colorSchemeSeed: seed, brightness: Brightness.dark),
+        // Stance is dark-only.
+        theme: stanceTheme(),
         home: const HomePage(),
       ),
     );

@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 
 import '../permissions/permission_service.dart';
+import 'stance_theme.dart';
 
 /// Make sure [capability] is usable, explaining and prompting as needed.
 ///
@@ -199,19 +200,25 @@ class BluetoothAccessBanner extends StatelessWidget {
             (Access.askable, _) => ('Allow Bluetooth to connect to your sensor.', 'Allow'),
           };
           if (text.isEmpty) return const SizedBox.shrink();
-          return MaterialBanner(
-            key: const Key('bluetoothBanner'),
-            leading: const Icon(Icons.bluetooth_disabled),
-            content: Text(text),
-            actions: [
-              if (button != null)
-                TextButton(
-                  onPressed: () => ensureAccess(context, service, AppCapability.bluetooth),
-                  child: Text(button),
-                )
-              else
-                const SizedBox.shrink(),
-            ],
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Card(
+              key: const Key('bluetoothBanner'),
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                child: Row(children: [
+                  const Icon(Icons.bluetooth_disabled, color: StanceColors.error),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(text)),
+                  if (button != null)
+                    TextButton(
+                      onPressed: () => ensureAccess(context, service, AppCapability.bluetooth),
+                      child: Text(button),
+                    ),
+                ]),
+              ),
+            ),
           );
         },
       );

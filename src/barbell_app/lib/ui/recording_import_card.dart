@@ -94,7 +94,7 @@ class _RecordingImportCardState extends State<RecordingImportCard> {
     final theme = Theme.of(context);
     final last = _state.lastImported;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Card(
           margin: EdgeInsets.zero,

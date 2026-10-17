@@ -149,6 +149,16 @@ decompiled app. Trace how Stance implements each one before building it.
       streaming-issue badges. Skipped rows: Firebase ID, BLE stack switch,
       Recording/Calibration screens, sync diagnostics, Sign out; and
       per-screen lifecycle logging.
+- [ ] **Visual style** *(Stance, `presentation/theme`)*: the theme is
+      ported (`ui/stance_theme.dart`: dark-only colour scheme, Poppins
+      type scale and fonts from the APK, shapes). Home matches
+      `HomeScreen`: the top row with the settings circle and the
+      `SmallDeviceStatusButton` pill (now used on every page), the 40 sp
+      title, and group → exercise drill-down with `ExerciseCatalogRow` cards
+      and the BETA badge. Other screens only get the theme so far; port
+      each screen's own layout next (Sessions, Weight input, Record,
+      Feedback). Own additions on Home: the Bluetooth card, and the
+      Recordings menu item.
 
 Deliberately out of scope: auth, onboarding and welcome screens, the
 affiliate and WhatsApp prompts, "update required", cloud sync (Supabase),
