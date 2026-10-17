@@ -174,7 +174,7 @@ void main() {
         await tester.pump();
       }
 
-      final picker = tester.widget<DropdownButton<String?>>(
+      final picker = tester.widget<StanceMenuPicker<String?>>(
           find.byKey(const Key('comparisonPicker')));
       expect(picker.value, 'newer');
       final chart = tester.widget<LoadVelocityChart>(

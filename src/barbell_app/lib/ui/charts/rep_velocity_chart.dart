@@ -5,6 +5,22 @@ import 'package:flutter/material.dart';
 import '../../workout/load_velocity.dart' show niceTicks;
 import '../../workout/session_comparison.dart';
 import '../format.dart';
+import '../stance_theme.dart';
+
+/// Stance's `StanceAxisLabel` (Poppins 11/14 medium) in SubtitleGray, the
+/// tick labels of its charts.
+const stanceAxisLabel = TextStyle(
+  fontFamily: 'Poppins',
+  fontSize: 11,
+  height: 14 / 11,
+  fontWeight: FontWeight.w500,
+  color: StanceColors.subtitleGray,
+  fontFeatures: tabularFigures,
+);
+
+/// Stance draws chart strokes in raw pixels; this converts them at the
+/// reference phone's 2.625 density.
+double stancePx(double px) => px / 2.625;
 
 /// Mean velocity per rep as a smoothed line with dots, optionally against
 /// a second set's reps. Port of Stance's `RepVelocityChart`.
@@ -31,14 +47,13 @@ class RepVelocityChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     if (velocities.isEmpty && compare.isEmpty) {
       return SizedBox(
         height: height,
         child: Center(
           child: Text('No data to display',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: scheme.onSurfaceVariant)),
+              style: theme.textTheme.bodyLarge?.copyWith(
+                  color: StanceColors.subtitleGray, fontWeight: FontWeight.w700)),
         ),
       );
     }
@@ -52,13 +67,12 @@ class RepVelocityChart extends StatelessWidget {
             compare: compare,
             bounds: bounds ?? repChartBounds([...velocities, ...compare]),
             showAxes: showAxes,
-            color: scheme.primary,
-            compareColor: scheme.tertiary,
-            gridColor: scheme.outlineVariant,
-            labelStyle: theme.textTheme.labelSmall!.copyWith(
-              color: scheme.onSurfaceVariant,
-              fontFeatures: tabularFigures,
-            ),
+            color: StanceColors.primary,
+            compareColor: StanceColors.secondaryPrime,
+            gridColor: const Color(0x26FFFFFF),
+            labelStyle: stanceAxisLabel,
+            titleStyle: theme.textTheme.labelSmall!.copyWith(
+                color: StanceColors.subtitleGray, fontWeight: FontWeight.w500),
           ),
           child: const SizedBox.expand(),
         ),
@@ -77,6 +91,7 @@ class RepVelocityPainter extends CustomPainter {
     required this.compareColor,
     required this.gridColor,
     required this.labelStyle,
+    required this.titleStyle,
   });
 
   final List<double> velocities, compare;
@@ -84,6 +99,9 @@ class RepVelocityPainter extends CustomPainter {
   final bool showAxes;
   final Color color, compareColor, gridColor;
   final TextStyle labelStyle;
+
+  /// Stance's "m/s" and "Reps" axis titles.
+  final TextStyle titleStyle;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -100,7 +118,7 @@ class RepVelocityPainter extends CustomPainter {
     if (showAxes) {
       final grid = Paint()
         ..color = gridColor
-        ..strokeWidth = 0.5;
+        ..strokeWidth = stancePx(1);
       for (final v in niceTicks(lo, hi, 4)) {
         if (v < lo - 1e-9 || v > hi + 1e-9) continue;
         canvas.drawLine(Offset(plot.left, y(v)), Offset(plot.right, y(v)), grid);
@@ -111,7 +129,10 @@ class RepVelocityPainter extends CustomPainter {
       for (var rep = 1; rep <= n; rep += step) {
         _text(canvas, '$rep', Offset(x(rep), plot.bottom + 4));
       }
-      _text(canvas, 'Reps', Offset(plot.center.dx, size.height - 12));
+      _text(canvas, 'm/s', Offset(plot.left - 6, 0),
+          rightMiddle: true, style: titleStyle);
+      _text(canvas, 'Reps', Offset(plot.right, size.height - 12),
+          rightTop: true, style: titleStyle);
     }
 
     _series(canvas, compare, compareColor, x, y);
@@ -128,17 +149,18 @@ class RepVelocityPainter extends CustomPainter {
         Paint()
           ..color = c
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 2,
+          ..strokeWidth = stancePx(4),
       );
     }
     for (final p in pts) {
-      canvas.drawCircle(p, 4.5, Paint()..color = c);
+      canvas.drawCircle(p, stancePx(9), Paint()..color = c);
     }
   }
 
-  void _text(Canvas canvas, String s, Offset at, {bool rightMiddle = false}) {
+  void _text(Canvas canvas, String s, Offset at,
+      {bool rightMiddle = false, bool rightTop = false, TextStyle? style}) {
     final tp = TextPainter(
-      text: TextSpan(text: s, style: labelStyle),
+      text: TextSpan(text: s, style: style ?? labelStyle),
       textDirection: TextDirection.ltr,
     )..layout();
     tp.paint(
@@ -146,7 +168,9 @@ class RepVelocityPainter extends CustomPainter {
         at -
             (rightMiddle
                 ? Offset(tp.width, tp.height / 2)
-                : Offset(tp.width / 2, 0)));
+                : rightTop
+                    ? Offset(tp.width, 0)
+                    : Offset(tp.width / 2, 0)));
   }
 
   @override

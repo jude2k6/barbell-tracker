@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../workout/load_velocity.dart' show niceTicks;
 import '../../workout/rpe_profile.dart';
 import '../format.dart';
+import '../stance_theme.dart';
+import 'rep_velocity_chart.dart' show stanceAxisLabel;
 
 /// Stance's RPE colour scale, 5 (grey-blue) to 10 (red) in 0.5 steps.
 const _rpeColors = [
@@ -41,15 +43,14 @@ class _RpeProfileChartState extends State<RpeProfileChart> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final p = widget.profile;
     if (p.isEmpty) {
       return SizedBox(
         height: 60,
         child: Center(
           child: Text('No data to display',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: scheme.onSurfaceVariant)),
+              style: theme.textTheme.bodyLarge?.copyWith(
+                  color: StanceColors.subtitleGray, fontWeight: FontWeight.w700)),
         ),
       );
     }
@@ -62,12 +63,9 @@ class _RpeProfileChartState extends State<RpeProfileChart> {
             painter: RpeProfilePainter(
               profile: p,
               zoomedOut: _zoomedOut,
-              lineColor: scheme.primary,
-              gridColor: scheme.outlineVariant,
-              labelStyle: theme.textTheme.labelSmall!.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontFeatures: tabularFigures,
-              ),
+              lineColor: StanceColors.primary,
+              gridColor: const Color(0x26FFFFFF),
+              labelStyle: stanceAxisLabel,
             ),
             child: const SizedBox.expand(),
           ),

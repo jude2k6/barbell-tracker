@@ -13,17 +13,33 @@ import 'charts/weight_history_chart.dart';
 import 'comparison_views.dart';
 import 'format.dart';
 import 'readiness_card.dart';
+import 'stance_theme.dart';
 import 'rep_table.dart';
 
 /// The modal sheets opened from the session feedback page's set cards
 /// (Stance's readiness detail, RPE, rep speed detail and Edit Set sheets).
 
-Future<T?> _sheet<T>(BuildContext context, String title, WidgetBuilder body) =>
+/// Stance's modal sheets: 30 dp top corners, the Material drag handle and
+/// a dark fill ([color]; most are #201B28). The header is the [title] in
+/// [titleStyle] (headlineMedium by default) with an optional [action]
+/// button at the end.
+Future<T?> _sheet<T>(
+  BuildContext context,
+  WidgetBuilder body, {
+  String? title,
+  TextStyle? Function(TextTheme)? titleStyle,
+  WidgetBuilder? action,
+  Color color = StanceExtraColors.fourgroundSolid,
+  double padding = 16,
+}) =>
     showModalBottomSheet<T>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
       useSafeArea: true,
+      backgroundColor: color,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
       builder: (context) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.75,
@@ -31,20 +47,37 @@ Future<T?> _sheet<T>(BuildContext context, String title, WidgetBuilder body) =>
         builder: (context, controller) => ListView(
           controller: controller,
           padding: EdgeInsets.fromLTRB(
-              16, 0, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
+              padding, 0, padding, 24 + MediaQuery.viewInsetsOf(context).bottom),
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
+            if (title != null) ...[
+              Row(children: [
+                Expanded(
+                  child: Text(title,
+                      style: (titleStyle ?? (t) => t.headlineMedium)(
+                          Theme.of(context).textTheme)),
+                ),
+                if (action != null) action(context),
+              ]),
+              const SizedBox(height: 16),
+            ],
             body(context),
           ],
         ),
       ),
     );
 
+/// Section headings in the sheets (Stance's bodyLarge white).
+TextStyle? _heading(BuildContext context) => Theme.of(context).textTheme.bodyLarge;
+
+/// Secondary text in the sheets (SubtitleGray).
+TextStyle? _subtitle(BuildContext context, [TextStyle? Function(TextTheme)? base]) =>
+    (base ?? (t) => t.bodyMedium)(Theme.of(context).textTheme)
+        ?.copyWith(color: StanceColors.subtitleGray);
+
 Future<void> showReadinessSheet(
         BuildContext context, ReadinessResult result, SetRecord set) =>
-    _sheet(context, 'Readiness',
-        (_) => ReadinessCard(result: result, set: set));
+    _sheet(context, (_) => ReadinessCard(result: result, set: set),
+        title: 'Readiness');
 
 /// Stance's TutorialSheet for the weight performance chart: a sheet with
 /// the title, subtitle and the tutorial image.
@@ -54,20 +87,22 @@ Future<void> showWeightPerformanceTutorial(BuildContext context) =>
       isScrollControlled: true,
       showDragHandle: true,
       useSafeArea: true,
+      backgroundColor: StanceExtraColors.fourgroundSolid,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
       builder: (context) {
         final theme = Theme.of(context);
         return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Weight Performance', style: theme.textTheme.titleLarge),
+                Text('Weight Performance', style: theme.textTheme.headlineMedium),
                 const SizedBox(height: 8),
                 Text(
                     'Compare recent sets at any weight as an indicator of '
                     'progress.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant)),
+                    style: _subtitle(context, (t) => t.bodyLarge)),
                 const SizedBox(height: 16),
                 Image.asset('assets/images/weight_performance_tutorial.webp',
                     key: const Key('weightPerformanceTutorialImage')),
@@ -88,17 +123,19 @@ Future<void> showRepSpeedSheet(BuildContext context,
       ? buildWeightHistory(all,
           exerciseId: session.exerciseId, weight: set.weight, unit: set.unit)
       : const <WeightHistoryPoint>[];
-  return _sheet(context, 'Rep speed', (context) {
+  // Stance's `RepSpeedDetailSheet`: no title, Secondary (#363536) fill,
+  // 26 dp sides.
+  return _sheet(color: StanceColors.secondary, padding: 26, context, (context) {
     final theme = Theme.of(context);
     final reps = set.reps;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (reps.isEmpty)
-        const Text('No reps detected for this set.')
+        Text('No reps detected for this set.', style: _subtitle(context))
       else ...[
         SetRepChart(session: session, setIndex: setIndex),
         if (set.velocityTrace.length > 1 && set.traceHz != null) ...[
           const SizedBox(height: 16),
-          Text('Velocity (m/s)', style: theme.textTheme.titleSmall),
+          Text('Velocity (m/s)', style: _heading(context)),
           const SizedBox(height: 8),
           VelocityChart(
             velocity: set.velocityTrace,
@@ -110,41 +147,57 @@ Future<void> showRepSpeedSheet(BuildContext context,
         RepTable(reps: reps),
         if (reps.any((r) => r.sticking != null)) ...[
           const SizedBox(height: 16),
-          Text('Sticking region', style: theme.textTheme.titleSmall),
+          Text('Sticking region', style: _heading(context)),
           const SizedBox(height: 8),
           StickingList(reps: reps),
         ],
       ],
+      // Stance's `WeightPerformanceSection`.
       if (set.weight > 0) ...[
+        const SizedBox(height: 24),
+        Text('Comparison against previous Sets & Sessions at',
+            style: _subtitle(context, (t) => t.bodyLarge)),
+        const SizedBox(height: 6),
+        Text(fmtWeight(set.weight, set.unit),
+            style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500)),
+        const SizedBox(height: 24),
+        if (history.isNotEmpty) WeightHistoryChart(points: history, height: 226),
         const SizedBox(height: 16),
-        Text('Sets at ${fmtWeight(set.weight, set.unit)}: '
-            'slowest to fastest rep (m/s)',
-            style: theme.textTheme.titleSmall),
         // Stance's "How do I use this?" button (always shown, not once-only).
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
+        Material(
+          color: detailPanelFill,
+          borderRadius: BorderRadius.circular(8),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
             key: const Key('weightPerformanceHelp'),
-            onPressed: () => showWeightPerformanceTutorial(context),
-            icon: const Icon(Icons.help_outline, size: 18),
-            label: const Text('How do I use this?'),
+            onTap: () => showWeightPerformanceTutorial(context),
+            child: SizedBox(
+              height: 48,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(children: [
+                  const Icon(Icons.info_outline, size: 20, color: StanceColors.subtitleGray),
+                  const SizedBox(width: 8),
+                  Text('How do I use this?', style: _subtitle(context, (t) => t.bodyLarge)),
+                  const Spacer(),
+                  const Icon(Icons.arrow_forward, size: 20, color: Colors.white),
+                ]),
+              ),
+            ),
           ),
         ),
-        if (history.isNotEmpty) WeightHistoryChart(points: history),
       ],
-      const SizedBox(height: 16),
+      const SizedBox(height: 24),
       if (set.pipeline != null)
         Text(
           '${pipelineLabel(set.pipeline!)}'
           '${set.measuredHz == null ? '' : ' · ${set.measuredHz!.toStringAsFixed(0)} Hz'}',
           key: const Key('pipelineLabel'),
-          style: theme.textTheme.labelMedium.tabular,
+          style: _subtitle(context, (t) => t.labelMedium).tabular,
         ),
-      for (final w in set.warnings) Text(w, style: theme.textTheme.bodySmall),
+      for (final w in set.warnings) Text(w, style: _subtitle(context, (t) => t.bodySmall)),
       if (set.rawCsvFile != null)
-        Text('Raw: ${set.rawCsvFile}',
-            style: theme.textTheme.labelSmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        Text('Raw: ${set.rawCsvFile}', style: _subtitle(context, (t) => t.bodySmall)),
     ]);
   });
 }
@@ -164,8 +217,12 @@ Future<RpeChoice?> showRpeSheet(
   RpeIntensityProfile? profile,
   VoidCallback? onEditProfile,
 }) =>
-    _sheet<RpeChoice>(context, 'RPE',
-        (_) => _RpeEditor(set: set, profile: profile, onEditProfile: onEditProfile));
+    // Stance's `RpeDetailSheet` sits on its #101010 StanceBackground.
+    _sheet<RpeChoice>(
+      context,
+      (_) => _RpeEditor(set: set, profile: profile, onEditProfile: onEditProfile),
+      color: const Color(0xFF101010),
+    );
 
 class _RpeEditor extends StatefulWidget {
   const _RpeEditor({required this.set, this.profile, this.onEditProfile});
@@ -187,72 +244,102 @@ class _RpeEditorState extends State<_RpeEditor> {
     final theme = Theme.of(context);
     final profile = widget.profile;
     final speed = profile?.lastRepSpeed;
+    final color = rpeColor(_rpe) ?? StanceColors.primary;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('Enter your Rate of Perceived Exertion for this set. Last rep is '
-          'the best indicator of your RPE.',
-          style: theme.textTheme.bodyMedium),
-      const SizedBox(height: 12),
-      Text('What RPE was the set?', style: theme.textTheme.titleSmall),
+      // Stance: "RPE" in headlineLarge with a small Save button.
       Row(children: [
-        Expanded(
-          child: Slider(
-            key: const Key('rpeSlider'),
-            value: _rpe,
-            min: 5,
-            max: 10,
-            divisions: 10,
-            label: fmtRpe(_rpe),
-            activeColor: rpeColor(_rpe),
-            onChanged: (v) {
-              HapticFeedback.selectionClick();
-              setState(() => _rpe = v);
-            },
-          ),
-        ),
-        SizedBox(
-          width: 40,
-          child: Text(fmtRpe(_rpe),
-              key: const Key('rpeValue'),
-              textAlign: TextAlign.end,
-              style: theme.textTheme.titleLarge.tabular),
-        ),
-      ]),
-      if (profile != null && profile.hasSuggestion && speed != null)
-        Text(
-          'Past sets with a last rep near ${fmtVelocity(speed)} m/s: '
-          'RPE ${fmtRpe(profile.minRpe) == fmtRpe(profile.maxRpe) ? fmtRpe(profile.minRpe) : '${fmtRpe(profile.minRpe)}–${fmtRpe(profile.maxRpe)}'}',
-          key: const Key('rpeSuggestion'),
-          style: theme.textTheme.bodyMedium.tabular,
-        ),
-      const SizedBox(height: 12),
-      Row(children: [
-        if (widget.set.rpe != null)
-          TextButton(
-            key: const Key('rpeClear'),
-            onPressed: () => Navigator.of(context).pop(const RpeChoice(null)),
-            child: const Text('Clear'),
-          ),
-        const Spacer(),
+        Expanded(child: Text('RPE', style: theme.textTheme.headlineLarge)),
         FilledButton(
           key: const Key('rpeSave'),
+          style: stanceSmallButtonStyle(context),
           onPressed: () => Navigator.of(context).pop(RpeChoice(_rpe)),
           child: const Text('Save'),
         ),
       ]),
+      Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Text(
+            'Enter your Rate of Perceived Exertion for this set. Last rep is '
+            'the best indicator of your RPE',
+            style: _subtitle(context, (t) => t.bodyLarge)),
+      ),
       if (profile != null && !profile.isEmpty) ...[
         const SizedBox(height: 16),
-        Row(children: [
-          Expanded(
-              child: Text('Speed-Intensity Profile',
-                  style: theme.textTheme.titleSmall)),
-          if (widget.onEditProfile != null)
-            TextButton(
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: stanceCard(),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('Speed-Intensity Profile', style: _heading(context)),
+            RpeProfileChart(profile: profile),
+            if (profile.hasSuggestion && speed != null)
+              Text(
+                'Past sets with a last rep near ${fmtVelocity(speed)} m/s: '
+                'RPE ${fmtRpe(profile.minRpe) == fmtRpe(profile.maxRpe) ? fmtRpe(profile.minRpe) : '${fmtRpe(profile.minRpe)}–${fmtRpe(profile.maxRpe)}'}',
+                key: const Key('rpeSuggestion'),
+                style: _subtitle(context).tabular,
+              ),
+          ]),
+        ),
+      ],
+      if (widget.onEditProfile != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 16),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton(
+              style: stanceSmallButtonStyle(context, secondary: true),
               onPressed: widget.onEditProfile,
               child: const Text('Edit Profile'),
             ),
+          ),
+        ),
+      // Stance's `RpeSliderCard`: the prompt (or the value) over a white
+      // slider with a Primary track, Clear at the end.
+      Container(
+        margin: const EdgeInsets.only(top: 16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        decoration: stanceCard(),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Stack(alignment: Alignment.center, children: [
+            Text(fmtRpe(_rpe),
+                key: const Key('rpeValue'),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineSmall?.copyWith(color: color).tabular),
+            if (widget.set.rpe != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton(
+                  key: const Key('rpeClear'),
+                  style: stanceSmallButtonStyle(context, secondary: true),
+                  onPressed: () => Navigator.of(context).pop(const RpeChoice(null)),
+                  child: const Text('Clear'),
+                ),
+              ),
+          ]),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              thumbColor: Colors.white,
+              activeTrackColor: StanceColors.primary,
+              inactiveTrackColor: const Color(0x26FFFFFF),
+              activeTickMarkColor: const Color(0x59FFFFFF),
+              inactiveTickMarkColor: const Color(0x59FFFFFF),
+              trackHeight: 4,
+            ),
+            child: Slider(
+              key: const Key('rpeSlider'),
+              value: _rpe,
+              min: 5,
+              max: 10,
+              divisions: 10,
+              label: fmtRpe(_rpe),
+              onChanged: (v) {
+                HapticFeedback.selectionClick();
+                setState(() => _rpe = v);
+              },
+            ),
+          ),
         ]),
-        RpeProfileChart(profile: profile),
-      ],
+      ),
     ]);
   }
 }
@@ -284,9 +371,10 @@ Future<SetEdit?> showEditSetSheet(
   required Future<SetRecord> Function(SetRecord set) onReportIssue,
   DateTime Function()? now,
 }) =>
+    // Stance's `FeedbackEditSheet`: #101010 fill.
     _sheet<SetEdit>(
+      color: const Color(0xFF101010),
       context,
-      'Edit Set',
       (_) => _SetEditor(
         set: set,
         deadlift: deadlift,
@@ -442,80 +530,106 @@ class _SetEditorState extends State<_SetEditor> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      SegmentedButton<bool>(
-        segments: const [
-          ButtonSegment(value: true, label: Text('Details')),
-          ButtonSegment(value: false, label: Text('Reps', key: Key('repsTab'))),
-        ],
-        selected: {_details},
-        showSelectedIcon: false,
-        onSelectionChanged: (v) => setState(() => _details = v.first),
-      ),
-      const SizedBox(height: 16),
-      if (_details) ..._detailsTab(theme) else ..._repsTab(theme),
-      const SizedBox(height: 16),
+      // Stance: "Edit Set" (headlineMedium) and a small Done button, then
+      // Reps | Details tabs. Cancel is our own (dismissing also cancels).
       Row(children: [
+        Expanded(child: Text('Edit Set', style: theme.textTheme.headlineMedium)),
         TextButton(
-            onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
-        const Spacer(),
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(foregroundColor: StanceColors.subtitleGray),
+            child: const Text('Cancel')),
+        const SizedBox(width: 8),
         FilledButton(
-            key: const Key('editDone'), onPressed: _done, child: const Text('Done')),
+            key: const Key('editDone'),
+            style: stanceSmallButtonStyle(context),
+            onPressed: _done,
+            child: const Text('Done')),
       ]),
+      Padding(
+        padding: const EdgeInsets.only(top: 16, bottom: 20),
+        child: StanceSegmentedTabs<bool>(
+          values: const [false, true],
+          selected: _details,
+          label: (d) => d ? 'Details' : 'Reps',
+          keys: const {false: Key('repsTab')},
+          onSelect: (d) => setState(() => _details = d),
+        ),
+      ),
+      if (_details) ..._detailsTab(theme) else ..._repsTab(theme),
     ]);
   }
 
   List<Widget> _detailsTab(ThemeData theme) => [
+        Text('Weight', style: _heading(context)),
+        const SizedBox(height: 8),
         TextField(
           key: const Key('editWeight'),
           controller: _weight,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+          style: theme.textTheme.bodyLarge,
           decoration: InputDecoration(
-            labelText: 'Weight',
             suffixText: _set.unit.name,
-            border: const OutlineInputBorder(),
+            filled: true,
+            fillColor: StanceColors.cardFill,
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: StanceExtraColors.cardStroke)),
+            enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: StanceExtraColors.cardStroke)),
           ),
         ),
-        const SizedBox(height: 16),
-        Text('Set Type${_setType == null ? ' · Not set' : ''}',
-            style: theme.textTheme.titleSmall),
+        const SizedBox(height: 20),
+        Text('Set Type', style: _heading(context)),
+        if (_setType == null) Text('Not set', style: _subtitle(context)),
         const SizedBox(height: 8),
-        Wrap(spacing: 8, runSpacing: 4, children: [
+        Wrap(spacing: 8, runSpacing: 8, children: [
           for (final t in SetType.values)
             ChoiceChip(
               label: Text(t.displayName),
               selected: _setType == t,
+              showCheckmark: false,
+              selectedColor: StanceColors.primary,
+              backgroundColor: StanceColors.cardFill,
+              side: const BorderSide(color: StanceExtraColors.cardStroke),
+              shape: const StadiumBorder(),
               onSelected: (on) => setState(() => _setType = on ? t : null),
             ),
         ]),
-        const SizedBox(height: 16),
-        Wrap(spacing: 8, runSpacing: 4, children: [
-          OutlinedButton.icon(
-            key: const Key('copySetId'),
-            icon: Icon(_idCopied ? Icons.check : Icons.copy),
-            label: Text(_idCopied ? 'ID Copied' : 'Copy Set ID'),
-            onPressed: () async {
+        const SizedBox(height: 8),
+        // Stance: three full-width 48 dp buttons, 16 dp apart.
+        for (final (key, label, style, onPressed) in [
+          (
+            const Key('copySetId'),
+            _idCopied ? 'ID Copied' : 'Copy Set ID',
+            stanceSecondaryButtonStyle(context, height: 48),
+            () async {
               await Clipboard.setData(ClipboardData(text: _set.id));
               if (mounted) setState(() => _idCopied = true);
             },
           ),
-          OutlinedButton.icon(
-            key: const Key('reportIssue'),
-            icon: const Icon(Icons.flag_outlined),
-            label: const Text('Report Issue'),
-            onPressed: () async {
+          (
+            const Key('reportIssue'),
+            'Report Issue',
+            stanceButtonStyle(context, height: 48),
+            () async {
               final updated = await widget.onReportIssue(_set);
               if (mounted) setState(() => _set = updated);
             },
           ),
-          TextButton.icon(
-            key: const Key('deleteSet'),
-            style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
-            onPressed: _delete,
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('Delete Set'),
+          (
+            const Key('deleteSet'),
+            'Delete Set',
+            stanceButtonStyle(context, height: 48, background: StanceColors.error),
+            _delete,
           ),
-        ]),
+        ])
+          Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: FilledButton(
+                key: key, style: style, onPressed: onPressed, child: Text(label)),
+          ),
       ];
 
   List<Widget> _repsTab(ThemeData theme) {
@@ -523,45 +637,77 @@ class _SetEditorState extends State<_SetEditor> {
     final current = _set.reps.length;
     final desired = int.tryParse(_reps.text.trim());
     return [
+      // Stance's `StanceEditTimerPill`.
       Align(
         alignment: Alignment.centerLeft,
-        child: Chip(
+        child: Container(
           key: const Key('editTimer'),
-          avatar: const Icon(Icons.timer_outlined, size: 18),
-          label: Text(left == Duration.zero
-              ? 'Edit Expired'
-              : '${formatTimeLeft(left)} left to edit'),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0x33782EFD),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.timer_outlined, size: 14, color: StanceExtraColors.purple1),
+            const SizedBox(width: 4),
+            Text(
+                left == Duration.zero
+                    ? 'Edit Expired'
+                    : '${formatTimeLeft(left)} left to edit',
+                style: theme.textTheme.labelSmall
+                    ?.copyWith(color: StanceExtraColors.purple1)),
+          ]),
         ),
-      ),
-      Text('You have 7 days to edit your reps after a set.',
-          style: theme.textTheme.bodySmall),
-      const SizedBox(height: 16),
-      TextField(
-        key: const Key('totalReps'),
-        controller: _reps,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        decoration: const InputDecoration(
-            labelText: 'Total reps', border: OutlineInputBorder()),
       ),
       Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text("If the rep count isn't correct then edit and tap recalculate.",
-            style: theme.textTheme.bodySmall),
+        padding: const EdgeInsets.only(top: 4, bottom: 16),
+        child: Text('You have 7 days to edit your reps after a set.',
+            style: _subtitle(context)),
       ),
-      if (_busy) const LinearProgressIndicator(),
-      Wrap(spacing: 8, runSpacing: 4, children: [
-        FilledButton(
-          key: const Key('recalculate'),
-          onPressed: _busy || desired == null || desired == current ? null : _recalculate,
-          child: const Text('Recalculate'),
-        ),
-        OutlinedButton(
-          key: const Key('checkReps'),
-          onPressed: _busy ? null : _checkReps,
-          child: const Text('Check Reps'),
-        ),
-      ]),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: stanceCard(),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            Expanded(child: Text('Total reps', style: theme.textTheme.bodyLarge)),
+            SizedBox(
+              width: 96,
+              height: 64,
+              child: TextField(
+                key: const Key('totalReps'),
+                controller: _reps,
+                keyboardType: TextInputType.number,
+                textAlign: TextAlign.center,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: theme.textTheme.headlineMedium,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+          ]),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text("If the rep count isn't correct then edit and tap recalculate.",
+                style: _subtitle(context)),
+          ),
+          if (_busy) const LinearProgressIndicator(),
+          FilledButton(
+            key: const Key('recalculate'),
+            style: stanceButtonStyle(context),
+            onPressed: _busy || desired == null || desired == current ? null : _recalculate,
+            child: const Text('Recalculate'),
+          ),
+        ]),
+      ),
+      const SizedBox(height: 16),
+      FilledButton(
+        key: const Key('checkReps'),
+        style: stanceSecondaryButtonStyle(context, height: 48),
+        onPressed: _busy ? null : _checkReps,
+        child: const Text('Check Reps'),
+      ),
     ];
   }
 }
@@ -576,7 +722,7 @@ class NoteChange {
 /// and a note about what isn't. The note is the set's [SetRecord.note].
 /// Returns null when closed without a change.
 Future<NoteChange?> showReportIssueSheet(BuildContext context, String? note) =>
-    _sheet<NoteChange>(context, 'Report Issue', (_) => _ReportIssue(note: note));
+    _sheet<NoteChange>(context, (_) => _ReportIssue(note: note));
 
 class _ReportIssue extends StatefulWidget {
   const _ReportIssue({this.note});
@@ -605,61 +751,96 @@ class _ReportIssueState extends State<_ReportIssue> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasNote = widget.note != null;
+    final bold = theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600);
+    ButtonStyle choice(bool selected) => selected
+        ? stanceButtonStyle(context, radius: 8, height: 40)
+        : stanceSecondaryButtonStyle(context, radius: 8, height: 40);
+    final big = stanceButtonStyle(context, radius: 8, height: 48);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('Feedback', style: theme.textTheme.titleSmall),
-      Text('Does the data look correct?', style: theme.textTheme.bodyMedium),
-      const SizedBox(height: 8),
-      Wrap(spacing: 8, runSpacing: 4, children: [
-        ChoiceChip(
-          key: const Key('dataLooksCorrect'),
-          label: const Text('Yes'),
-          selected: _looksCorrect,
-          onSelected: (_) => setState(() => _looksCorrect = true),
+      // Stance's `ReportIssueSheet`: a small Done button, the 40 sp bold
+      // title, then sections 20 dp apart.
+      Align(
+        alignment: Alignment.centerRight,
+        child: SizedBox(
+          width: 88,
+          child: FilledButton(
+              style: stanceSecondaryButtonStyle(context),
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Done')),
         ),
-        ChoiceChip(
-          key: const Key('dataLooksWrong'),
-          label: const Text("No, something doesn't look right"),
-          selected: !_looksCorrect,
-          onSelected: (_) => setState(() => _looksCorrect = false),
+      ),
+      Text('Report Issue',
+          style: theme.textTheme.displaySmall
+              ?.copyWith(fontSize: 40, height: 48 / 40, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 20),
+      Text('Feedback', style: bold),
+      Text('Does the data look correct?',
+          style: bold?.copyWith(color: StanceColors.subtitleGray)),
+      const SizedBox(height: 12),
+      Row(children: [
+        SizedBox(
+          width: 64,
+          child: FilledButton(
+            key: const Key('dataLooksCorrect'),
+            style: choice(_looksCorrect),
+            onPressed: () => setState(() => _looksCorrect = true),
+            child: const Text('Yes'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FilledButton(
+            key: const Key('dataLooksWrong'),
+            style: choice(!_looksCorrect),
+            onPressed: () => setState(() => _looksCorrect = false),
+            child: const Text("No, something doesn't look right",
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
         ),
       ]),
-      const SizedBox(height: 16),
-      Text('Notes', style: theme.textTheme.titleSmall),
+      const SizedBox(height: 20),
+      Text('Notes', style: bold),
       Text("Let us know what you think isn't looking right.",
-          style: theme.textTheme.bodySmall),
-      const SizedBox(height: 8),
+          style: bold?.copyWith(color: const Color(0xFF949392))),
+      const SizedBox(height: 12),
       TextField(
         key: const Key('issueNote'),
         controller: _text,
         enabled: !_looksCorrect,
-        minLines: 2,
-        maxLines: 5,
+        minLines: 6,
+        maxLines: 6,
         textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(border: OutlineInputBorder()),
+        style: theme.textTheme.bodyLarge,
+        cursorColor: StanceColors.primary,
+        decoration: InputDecoration(
+          filled: true,
+          // Stance's NoteFieldFill (#27252D), dimmed while disabled.
+          fillColor: Color(_looksCorrect ? 0x8027252D : 0xFF27252D),
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        ),
       ),
-      const SizedBox(height: 12),
-      Row(children: [
-        TextButton(
-            onPressed: () => Navigator.of(context).pop(), child: const Text('Done')),
-        const Spacer(),
-        if (hasNote && _looksCorrect)
-          FilledButton(
-            key: const Key('deleteNote'),
-            onPressed: () => Navigator.of(context).pop(const NoteChange(null)),
-            child: const Text('Delete note'),
-          )
-        else if (hasNote)
-          FilledButton(
-              key: const Key('updateNote'),
-              onPressed: _submit,
-              child: const Text('Update Note'))
-        else
-          FilledButton(
-            key: const Key('addNote'),
-            onPressed: _looksCorrect ? null : _submit,
-            child: const Text('Add Note'),
-          ),
-      ]),
+      const SizedBox(height: 20),
+      if (hasNote && _looksCorrect)
+        FilledButton(
+          key: const Key('deleteNote'),
+          style: big,
+          onPressed: () => Navigator.of(context).pop(const NoteChange(null)),
+          child: const Text('Delete note'),
+        )
+      else if (hasNote)
+        FilledButton(
+            key: const Key('updateNote'),
+            style: big,
+            onPressed: _submit,
+            child: const Text('Update Note'))
+      else
+        FilledButton(
+          key: const Key('addNote'),
+          style: big,
+          onPressed: _looksCorrect ? null : _submit,
+          child: const Text('Add Note'),
+        ),
     ]);
   }
 }

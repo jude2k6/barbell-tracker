@@ -15,7 +15,6 @@ import '../workout/rpe_profile.dart';
 import '../workout/session.dart';
 import '../workout/session_comparison.dart';
 import '../workout/session_tags.dart';
-import '../workout/set_metrics.dart';
 import 'app_scope.dart';
 import 'charts/load_velocity_chart.dart';
 import 'charts/rep_velocity_chart.dart';
@@ -29,14 +28,17 @@ import 'reprocess_banner.dart';
 import 'rpe_profile_page.dart';
 import 'sensor_status_chip.dart';
 import 'session_tag_editor.dart';
+import 'stance_theme.dart';
+import 'stance_widgets.dart';
 import 'video_review_page.dart';
 import 'workout_flow.dart';
 
-/// Stance's session feedback screen (notes §16), for live and past
-/// sessions alike. The body compares the session with an earlier one
-/// (chart, table or reps); a bottom sheet is about the selected set
-/// (default: the newest): set chips with Edit, "New set" while [active],
-/// then readiness, video, RPE and rep-speed cards that open detail sheets.
+/// Stance's session feedback screen (`SessionFeedbackRoute`, notes §16),
+/// for live and past sessions alike. The body compares the session with
+/// an earlier one (chart, table or reps); a bottom sheet is about the
+/// selected set (default: the newest): the set selector with Edit, "New
+/// set" while [active], then readiness, video, RPE and rep cards that
+/// open detail sheets.
 ///
 /// Follows the session in the store, so a set added or edited elsewhere
 /// shows up; a newly added set becomes the selected one.
@@ -377,94 +379,170 @@ class _SessionFeedbackPageState extends State<SessionFeedbackPage> {
     if (mounted) Navigator.of(context).pop();
   }
 
+  /// Stance's sheet peek: 196 + 18 dp, +40 when readiness has a verdict,
+  /// +50 when active, +70 with the reprocess banner.
+  double _peek(SetRecord set) {
+    final readiness = set.reps.isEmpty
+        ? null
+        : buildReadiness(_withCurrent, current: _session, set: set);
+    final verdict = readiness != null && _readinessVerdict(readiness, set) != null;
+    return 214.0 +
+        (verdict ? 40 : 0) +
+        (widget.active ? 50 : 0) +
+        (needsReprocessing(set) ? 70 : 0);
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = _session;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(s.exerciseTitle),
-        actions: [
-          IconButton(
+    // Stance's `WorkoutTopBar`: back, then the screen's actions (the guide
+    // button; here also the session menu) and the device status button.
+    final topBar = SizedBox(
+      height: 44,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        child: Row(children: [
+          CircleIconButton(
+            icon: Icons.arrow_back,
+            tooltip: 'Back',
+            onPressed: () => Navigator.of(context).maybePop(),
+          ),
+          const Spacer(),
+          _GuideHeaderButton(
             key: const Key('walkthroughButton'),
-            tooltip: 'Guide',
-            icon: const Icon(Icons.help_outline),
             onPressed: () => showGuide(context, feedbackWalkthroughSteps),
           ),
-          SensorStatusChip(sensor: _app.sensor, onPressed: () => openDevice(context)),
+          const SizedBox(width: 8),
           PopupMenuButton<VoidCallback>(
+            tooltip: 'More',
             onSelected: (f) => f(),
             itemBuilder: (_) => [
               PopupMenuItem(value: _openRpeProfile, child: const Text('Edit RPE Profile')),
               PopupMenuItem(value: _deleteSession, child: const Text('Delete session')),
             ],
+            child: const CircleIconButton(icon: Icons.more_vert),
           ),
-        ],
+          const SizedBox(width: 8),
+          SensorStatusChip(sensor: _app.sensor, onPressed: () => openDevice(context)),
+        ]),
       ),
-      body: s.sets.isEmpty
-          ? const Center(child: Text('No sets in this session.'))
-          : LayoutBuilder(builder: (context, box) {
-              // Stance's sheet peek: 214 dp, +50 when active.
-              // +70 with the reprocess banner, as Stance.
-              final banner = needsReprocessing(s.sets[_selectedIndex]);
-              final peek = math.min(
-                  240.0 + (widget.active ? 56 : 0) + (banner ? 70 : 0),
-                  box.maxHeight * 0.6);
-              final fraction = peek / box.maxHeight;
-              return Stack(children: [
-                ListView(
-                  padding: EdgeInsets.fromLTRB(16, 8, 16, peek + 16),
-                  children: [
-                    _Header(
-                        session: s,
-                        onDayType: _setDayType,
-                        onEditTags: _editTags),
-                    if (_showTagPrompt)
-                      _TagPrompt(onAnswer: _setDayType, onDismiss: _dismissTagPrompt),
-                    _ComparisonSection(
-                      session: s,
-                      others: _others,
-                      selectedIndex: _selectedIndex,
-                      onSelect: (i) => _select(s.sets[i].id),
-                      choice: _choice,
-                      onChoice: (c) => setState(() => _choice = c),
-                      view: _view,
-                      onView: (v) => setState(() => _view = v),
-                      comparisonId: _currentOnly ? null : _comparisonId,
-                      currentOnly: _currentOnly,
-                      onComparison: (id) => setState(() {
-                        _currentOnly = id == null;
-                        _comparisonId = id;
-                      }),
-                    ),
-                  ],
-                ),
-                DraggableScrollableSheet(
-                  key: const Key('setSheet'),
-                  initialChildSize: fraction,
-                  minChildSize: fraction,
-                  maxChildSize: 0.92,
-                  snap: true,
-                  builder: (context, controller) => _SetSheet(
-                    controller: controller,
-                    session: s,
-                    all: _withCurrent,
-                    selectedIndex: _selectedIndex,
-                    active: widget.active && s.exercise != null,
-                    onSelect: (i) => _select(s.sets[i].id),
-                    onEdit: _editSet,
-                    onNewSet: () => startSet(context, s.exercise!, session: s),
-                    onRpe: _openRpe,
-                    onWatch: _watch,
-                    reprocess: _reprocess,
-                    onReprocess: _reprocessSelected,
-                  ),
-                ),
-              ]);
-            }),
+    );
+    return Scaffold(
+      body: Stack(children: [
+        SafeArea(
+          bottom: false,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            topBar,
+            Expanded(
+              child: s.sets.isEmpty
+                  ? const Center(child: Text('No sets in this session.'))
+                  : LayoutBuilder(builder: (context, box) {
+                      final peek =
+                          math.min(_peek(s.sets[_selectedIndex]), box.maxHeight * 0.6);
+                      final fraction = peek / box.maxHeight;
+                      return Stack(children: [
+                        ListView(
+                          padding: EdgeInsets.fromLTRB(18, 0, 18, peek + 16),
+                          children: [
+                            _Header(
+                                session: s,
+                                onDayType: _setDayType,
+                                onEditTags: _editTags),
+                            _ComparisonSection(
+                              session: s,
+                              others: _others,
+                              selectedIndex: _selectedIndex,
+                              onSelect: (i) => _select(s.sets[i].id),
+                              choice: _choice,
+                              onChoice: (c) => setState(() => _choice = c),
+                              view: _view,
+                              onView: (v) => setState(() => _view = v),
+                              comparisonId: _currentOnly ? null : _comparisonId,
+                              currentOnly: _currentOnly,
+                              onComparison: (id) => setState(() {
+                                _currentOnly = id == null;
+                                _comparisonId = id;
+                              }),
+                            ),
+                          ],
+                        ),
+                        DraggableScrollableSheet(
+                          key: const Key('setSheet'),
+                          initialChildSize: fraction,
+                          minChildSize: fraction,
+                          maxChildSize: 0.92,
+                          snap: true,
+                          builder: (context, controller) => _SetSheet(
+                            controller: controller,
+                            session: s,
+                            all: _withCurrent,
+                            selectedIndex: _selectedIndex,
+                            active: widget.active && s.exercise != null,
+                            onSelect: (i) => _select(s.sets[i].id),
+                            onEdit: _editSet,
+                            onNewSet: () => startSet(context, s.exercise!, session: s),
+                            onRpe: _openRpe,
+                            onWatch: _watch,
+                            reprocess: _reprocess,
+                            onReprocess: _reprocessSelected,
+                          ),
+                        ),
+                      ]);
+                    }),
+            ),
+          ]),
+        ),
+        // Stance's tag guide covers the whole screen, top bar included.
+        if (_showTagPrompt && s.sets.isNotEmpty)
+          Positioned.fill(
+            child: _TagPrompt(onAnswer: _setDayType, onDismiss: _dismissTagPrompt),
+          ),
+      ]),
     );
   }
 }
 
+/// Stance's `GuideHeaderButton`: a 32 dp pill with a 2 dp Pink→Primary
+/// (70 %) border, the AI mark and "Guide" in 14 sp semibold.
+class _GuideHeaderButton extends StatelessWidget {
+  const _GuideHeaderButton({super.key, required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+        message: 'Guide',
+        child: GestureDetector(
+          onTap: onPressed,
+          child: Container(
+            height: 32,
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: const LinearGradient(
+                  colors: [Color(0xB3F415C3), Color(0xB3792EFF)]),
+            ),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: StanceColors.background,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.auto_awesome, size: 20, color: StanceColors.secondaryPrime),
+                SizedBox(width: 4),
+                Text('Guide',
+                    style: TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white)),
+              ]),
+            ),
+          ),
+        ),
+      );
+}
+
+/// The exercise title (headlineSmall) and Stance's `SessionDayTagDropdown`
+/// (a gray tag glyph and a menu picker), plus our session tag editor.
 class _Header extends StatelessWidget {
   const _Header(
       {required this.session,
@@ -479,46 +557,36 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final s = session;
-    final end = s.endedAt;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(
-        '${fmtDate(s.startedAt)}, ${fmtTime(s.startedAt)}'
-        '${end == null ? '' : '–${fmtTime(end)}'}',
-        style: theme.textTheme.bodyMedium.tabular,
-      ),
-      Text(
-        '${s.sets.length} sets · ${s.totalReps} reps · '
-        'best ${fmtVelocity(s.bestMeanVelocity)} m/s',
-        style: theme.textTheme.bodyMedium.tabular,
-      ),
-      const SizedBox(height: 4),
-      // Stance's `SessionDayTagDropdown`: None or one of the four types.
-      DropdownButton<SessionDayType?>(
-        key: const Key('dayTypeDropdown'),
-        value: SessionDayType.fromTags(s.tags),
-        hint: const Text('Day: None'),
-        items: [
-          const DropdownMenuItem(value: null, child: Text('Day: None')),
-          for (final d in SessionDayType.values)
-            DropdownMenuItem(value: d, child: Text('Day: ${d.displayName}')),
-        ],
-        onChanged: onDayType,
-      ),
-      // Stance's unused `session_tag_editor_open` / `add_session_tags`
-      // strings; see showSessionTagEditor.
-      TextButton.icon(
-        key: const Key('editSessionTags'),
-        onPressed: onEditTags,
-        icon: const Icon(Icons.local_offer_outlined),
-        label: Text(s.tags.isEmpty ? 'Add session tags' : 'Edit session tags'),
-      ),
+      Text(s.exerciseTitle, style: theme.textTheme.headlineSmall),
+      const SizedBox(height: 8),
+      Row(children: [
+        const Icon(Icons.local_offer, size: 15, color: StanceExtraColors.gray),
+        const SizedBox(width: 8),
+        StanceMenuPicker<SessionDayType?>(
+          key: const Key('dayTypeDropdown'),
+          value: SessionDayType.fromTags(s.tags),
+          values: const [null, ...SessionDayType.values],
+          label: (d) => d?.displayName ?? 'None',
+          onChanged: onDayType,
+        ),
+        const Spacer(),
+        // Stance's unused `session_tag_editor_open` / `add_session_tags`
+        // strings; see showSessionTagEditor.
+        ExtraSmallPillButton(
+          s.tags.isEmpty ? 'Add session tags' : 'Edit session tags',
+          key: const Key('editSessionTags'),
+          onPressed: onEditTags,
+        ),
+      ]),
       SessionTagsRow(tags: s.tags),
     ]);
   }
 }
 
-/// Stance's `SessionTagGuideOverlay`: asks for the session type, which
-/// readiness and session comparison match on.
+/// Stance's `SessionTagGuideOverlay` (a `GuideTipScaffold`): over a 60 %
+/// black scrim, a card asking for the session type, which readiness and
+/// session comparison match on. Picking one answers at once.
 class _TagPrompt extends StatelessWidget {
   const _TagPrompt({required this.onAnswer, required this.onDismiss});
 
@@ -528,40 +596,98 @@ class _TagPrompt extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      key: const Key('tagPrompt'),
-      margin: const EdgeInsets.only(top: 8),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 8, 12),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Expanded(child: Text('Readiness', style: theme.textTheme.titleSmall)),
-            IconButton(
-              key: const Key('dismissTagPrompt'),
-              tooltip: 'Not now',
-              icon: const Icon(Icons.close),
-              onPressed: onDismiss,
-            ),
-          ]),
-          const Text('What type of session are you doing today?'),
-          const SizedBox(height: 8),
-          Wrap(spacing: 8, runSpacing: 4, children: [
-            for (final d in SessionDayType.values)
-              ActionChip(
-                key: ValueKey('dayType-${d.name}'),
-                label: Text(d.displayName),
-                onPressed: () => onAnswer(d),
+    return GestureDetector(
+      onTap: onDismiss,
+      child: ColoredBox(
+        color: const Color(0x99000000),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: GestureDetector(
+            onTap: () {}, // taps on the card don't dismiss it
+            child: Container(
+              key: const Key('tagPrompt'),
+              margin: EdgeInsets.fromLTRB(
+                  24, MediaQuery.paddingOf(context).top + 10, 24, 0),
+              padding: const EdgeInsets.all(1),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xB3B557FF), Color(0xB3792EFF)],
+                ),
               ),
-          ]),
-        ]),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(15, 9, 15, 15),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF101010),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(children: [
+                        Expanded(
+                          child: Text('Readiness',
+                              style: theme.textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w700)),
+                        ),
+                        ExtraSmallButton('Dismiss',
+                            key: const Key('dismissTagPrompt'), onPressed: onDismiss),
+                      ]),
+                      const SizedBox(height: 6),
+                      Text('What type of session are you doing today?',
+                          style: theme.textTheme.bodyMedium
+                              ?.copyWith(color: StanceColors.subtitleGray)),
+                      const SizedBox(height: 10),
+                      for (final d in SessionDayType.values)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Material(
+                            color: StanceColors.cardFill,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: const BorderSide(color: StanceExtraColors.cardStroke),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              key: ValueKey('dayType-${d.name}'),
+                              onTap: () => onAnswer(d),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 12),
+                                child: Row(children: [
+                                  Container(
+                                    width: 20,
+                                    height: 20,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 2),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(d.displayName, style: theme.textTheme.bodyLarge),
+                                ]),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ]),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 }
 
-/// Stance's comparison controls and section: this session against an
-/// earlier one as a weight–velocity chart, side-by-side tables, or per-set
-/// rep speeds. Tapping a set selects it.
+/// Stance's `FeedbackComparisonControls` and `SessionComparisonSection`:
+/// "Compare:" with the date and Fastest/Last pickers, Chart / Table / Reps
+/// tabs, then this session against an earlier one as a weight–velocity
+/// chart, side-by-side tables, or per-set rep speeds. Tapping a set selects
+/// it.
 class _ComparisonSection extends StatelessWidget {
   const _ComparisonSection({
     required this.session,
@@ -604,102 +730,138 @@ class _ComparisonSection extends StatelessWidget {
             candidates.firstOrNull;
     final data =
         buildLoadVelocity(s, unit: unit, comparison: comparison, choice: choice);
+    final gray = theme.textTheme.bodyMedium
+        ?.copyWith(color: StanceExtraColors.gray, fontWeight: FontWeight.w500);
+    final speedPicker = StanceMenuPicker<SpeedChoice>(
+      value: choice,
+      values: SpeedChoice.values,
+      label: (c) => c == SpeedChoice.fastest ? 'Fastest' : 'Last',
+      onChanged: onChoice,
+    );
+
+    Widget block(String label, Color color, Widget table) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(label,
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: color, fontWeight: FontWeight.w500)),
+            ),
+            table,
+          ],
+        );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 16),
-        if (candidates.isEmpty)
-          Text(
-              hasSessionTypeTag(s.tags)
-                  ? 'No previous sessions to compare'
-                  : 'Pick a day type to compare with earlier sessions of that type.',
-              key: const Key('noComparison'),
-              style: theme.textTheme.bodySmall)
-        else
-          Row(children: [
-            Text('Compare:', style: theme.textTheme.labelLarge),
-            const SizedBox(width: 12),
-            Expanded(
-              child: DropdownButton<String?>(
-                key: const Key('comparisonPicker'),
-                isExpanded: true,
-                value: comparison?.id,
-                items: [
-                  const DropdownMenuItem(
-                      value: null, child: Text('Current session only')),
-                  for (final o in candidates)
-                    DropdownMenuItem(value: o.id, child: Text(fmtDate(o.startedAt))),
-                ],
-                onChanged: onComparison,
-              ),
-            ),
-          ]),
-        const SizedBox(height: 8),
-        Wrap(spacing: 12, runSpacing: 8, children: [
-          SegmentedButton<ComparisonView>(
-            segments: [
-              for (final v in ComparisonView.values)
-                ButtonSegment(value: v, label: Text(v.label)),
-            ],
-            selected: {view},
-            showSelectedIcon: false,
-            onSelectionChanged: (v) => onView(v.first),
-          ),
-          if (view != ComparisonView.reps)
-            SegmentedButton<SpeedChoice>(
-              segments: const [
-                ButtonSegment(value: SpeedChoice.fastest, label: Text('Fastest')),
-                ButtonSegment(value: SpeedChoice.last, label: Text('Last')),
+        // Controls: 36 dp tall, 16 dp above and 4 dp below.
+        Padding(
+          padding: const EdgeInsets.only(top: 16, bottom: 4),
+          child: SizedBox(
+            height: 36,
+            child: Row(children: [
+              if (view == ComparisonView.reps)
+                Text('No comparisons for rep speed', style: gray)
+              else if (candidates.isEmpty) ...[
+                Expanded(
+                  child: Text('No previous sessions to compare',
+                      key: const Key('noComparison'), style: gray),
+                ),
+                speedPicker,
+              ] else ...[
+                const Icon(Icons.compare_arrows, size: 15, color: StanceExtraColors.gray),
+                const SizedBox(width: 8),
+                Text('Compare:',
+                    style: theme.textTheme.labelSmall
+                        ?.copyWith(color: StanceExtraColors.gray)),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: StanceMenuPicker<String?>(
+                    key: const Key('comparisonPicker'),
+                    value: comparison?.id,
+                    values: [null, for (final o in candidates) o.id],
+                    label: (id) => id == null
+                        ? 'Current session only'
+                        : fmtDate(candidates.firstWhere((o) => o.id == id).startedAt),
+                    onChanged: onComparison,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                speedPicker,
               ],
-              selected: {choice},
-              showSelectedIcon: false,
-              onSelectionChanged: (v) => onChoice(v.first),
-            ),
-        ]),
-        const SizedBox(height: 8),
+            ]),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: 16, bottom: 20),
+          child: StanceSegmentedTabs<ComparisonView>(
+            values: ComparisonView.values,
+            selected: view,
+            label: (v) => v.label,
+            onSelect: onView,
+          ),
+        ),
         switch (view) {
           ComparisonView.chart => data.points.isEmpty
-              ? const Text('No sets with a weight and reps to chart.')
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    LoadVelocityChart(
-                      data: data,
-                      weightLabel: 'Weight (${unit.name})',
-                      selectedSetIndex: selectedIndex,
-                      onSelect: onSelect,
-                    ),
-                    if (comparison != null)
-                      Text(
-                        'Second colour: ${fmtDayMonth(comparison.startedAt)} session',
-                        style: theme.textTheme.labelSmall,
-                      ),
-                  ],
+              ? SizedBox(
+                  height: 280,
+                  child: Center(
+                    child: Text('No data available for chart',
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(color: StanceColors.subtitleGray)),
+                  ),
+                )
+              : LoadVelocityChart(
+                  data: data,
+                  weightLabel: 'Weight (${unit.name})',
+                  selectedSetIndex: selectedIndex,
+                  onSelect: onSelect,
+                  height: 280,
                 ),
           ComparisonView.table => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('This Session · ${fmtDate(s.startedAt)}',
-                    style: theme.textTheme.labelLarge),
-                ComparisonTable(
-                  rows: comparisonTable(s, choice),
-                  unit: unit,
-                  selectedSetIndex: selectedIndex,
-                  onSelect: onSelect,
+                ComparisonTableHeaders(unit: unit),
+                SizedBox(
+                  height: 250,
+                  child: ListView(padding: EdgeInsets.zero, children: [
+                    block(
+                      'This Session · ${fmtDate(s.startedAt)}',
+                      StanceColors.primary,
+                      ComparisonTable(
+                        rows: comparisonTable(s, choice),
+                        unit: unit,
+                        selectedSetIndex: selectedIndex,
+                        onSelect: onSelect,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (comparison == null) ...[
+                      Text('Comparison Session',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                              color: StanceColors.secondaryPrime,
+                              fontWeight: FontWeight.w600)),
+                      Container(
+                        margin: const EdgeInsets.symmetric(vertical: 20),
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        decoration: BoxDecoration(
+                          color: StanceColors.cardFill,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text('No previous sessions available',
+                            style: theme.textTheme.bodyMedium
+                                ?.copyWith(color: StanceExtraColors.gray)),
+                      ),
+                    ] else
+                      block(
+                        'Comparison Session · ${fmtDate(comparison.startedAt)}',
+                        StanceColors.secondaryPrime,
+                        ComparisonTable(rows: comparisonTable(comparison, choice), unit: unit),
+                      ),
+                  ]),
                 ),
-                const SizedBox(height: 16),
-                if (comparison == null)
-                  Text(
-                      candidates.isEmpty
-                          ? 'No previous sessions available'
-                          : 'Current session only',
-                      style: theme.textTheme.bodySmall)
-                else ...[
-                  Text('Comparison Session · ${fmtDate(comparison.startedAt)}',
-                      style: theme.textTheme.labelLarge),
-                  ComparisonTable(rows: comparisonTable(comparison, choice), unit: unit),
-                ],
               ],
             ),
           ComparisonView.reps => RepSpeedRow(
@@ -713,7 +875,23 @@ class _ComparisonSection extends StatelessWidget {
   }
 }
 
-/// The persistent bottom sheet about the selected set.
+/// Stance's readiness verdict for the mini card, if any.
+ReadinessComparison? _readinessVerdict(ReadinessResult r, SetRecord set) {
+  final current = readinessSpeed(set);
+  if (!r.hasHistory || current == null) return null;
+  return compareReadiness(
+    current: current,
+    lastSession: r.lastSessionSpeed,
+    average: r.historicAverage,
+    setType: set.setType,
+    weightLabel: fmtWeight(set.weight, set.unit),
+  );
+}
+
+/// The persistent bottom sheet about the selected set: Stance's
+/// `BottomSheetScaffold` sheet (#2C2C2E, 30 dp top corners, a 36×4 dp
+/// handle) with the set selector, reprocess banner, "New set" and the
+/// readiness, video, RPE and rep cards, 16 dp from the sides.
 class _SetSheet extends StatelessWidget {
   const _SetSheet({
     required this.controller,
@@ -754,143 +932,94 @@ class _SetSheet extends StatelessWidget {
         set.reps.isEmpty ? null : buildReadiness(all, current: s, set: set);
 
     return Material(
-      elevation: 8,
-      color: theme.colorScheme.surfaceContainerLow,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      color: const Color(0xFF2C2C2E),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
       child: SingleChildScrollView(
         controller: controller,
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Center(
             child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 10),
+              margin: const EdgeInsets.only(top: 8, bottom: 4),
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                color: const Color(0x66FFFFFF),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
-          Row(children: [
-            Expanded(
-              child: SizedBox(
-                height: 40,
-                child: ListView.separated(
-                  key: const Key('setSelector'),
-                  scrollDirection: Axis.horizontal,
-                  reverse: true,
-                  itemCount: s.sets.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 6),
-                  itemBuilder: (context, j) {
-                    // Newest first, like Stance's selector.
-                    final i = s.sets.length - 1 - j;
-                    final o = s.sets[i];
-                    return ChoiceChip(
-                      key: ValueKey('setChip-$i'),
-                      label: Text(
-                        'Set ${i + 1}'
-                        '${o.weight > 0 ? ' · ${fmtWeight(o.weight, o.unit)}' : ''}',
-                      ),
-                      selected: i == selectedIndex,
-                      onSelected: (_) => onSelect(i),
-                    );
-                  },
-                ),
-              ),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: _SetSelector(
+              session: s,
+              selectedIndex: selectedIndex,
+              onSelect: onSelect,
+              onEdit: () => onEdit(set),
             ),
-            IconButton(
-              key: const Key('editSet'),
-              tooltip: 'Edit set',
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () => onEdit(set),
-            ),
-          ]),
-          const SizedBox(height: 4),
-          Text(
-            [
-              'Set ${selectedIndex + 1}',
-              if (set.weight > 0) fmtWeight(set.weight, set.unit),
-              if (set.setType != null) set.setType!.displayName,
-              '${set.reps.length} reps',
-            ].join(' · '),
-            key: const Key('selectedSetSummary'),
-            style: theme.textTheme.titleSmall.tabular,
           ),
+          const SizedBox(height: 16),
           if (needsReprocessing(set)) ...[
-            const SizedBox(height: 8),
             ReprocessBanner(
               state: reprocess,
               onReprocess: onReprocess,
               detail: _errorDetail(set),
             ),
+            const SizedBox(height: 12),
           ],
           if (active) ...[
-            const SizedBox(height: 12),
-            FilledButton.icon(
+            FilledButton(
               key: const Key('newSet'),
-              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+              style: stanceButtonStyle(context),
               onPressed: onNewSet,
-              icon: const Icon(Icons.add),
-              label: const Text('New set'),
+              child: const Text('New set'),
             ),
+            const SizedBox(height: 16),
           ],
-          const SizedBox(height: 12),
-          if (readiness != null)
-            _MiniCard(
+          if (readiness != null) ...[
+            _ReadinessMiniCard(
               key: const Key('readinessMini'),
-              title: 'Readiness',
-              subtitle: _readinessLine(readiness, set),
-              trailing: Text(fmtVelocity(readinessSpeed(set)),
-                  style: theme.textTheme.titleMedium.tabular),
+              result: readiness,
+              set: set,
               onTap: () => showReadinessSheet(context, readiness, set),
             ),
-          if (set.hasVideo)
-            _MiniCard(
+            const SizedBox(height: 15),
+          ],
+          if (set.hasVideo) ...[
+            _VideoButton(
               key: const Key('watchVideo'),
-              title: 'Watch video',
-              subtitle: 'With the velocity overlay',
-              trailing: const Icon(Icons.play_circle_outline),
               onTap: () => onWatch(selectedIndex + 1, set),
             ),
-          _MiniCard(
-            key: const Key('rpeCard'),
-            title: 'RPE',
-            subtitle: set.rpe == null ? 'Tap to add how hard the set felt' : null,
-            trailing: set.rpe == null
-                ? const Icon(Icons.add)
-                : Text(fmtRpe(set.rpe),
-                    key: const Key('rpeCardValue'),
-                    style: theme.textTheme.titleLarge.tabular
-                        ?.copyWith(color: rpeColor(set.rpe!))),
-            onTap: () => onRpe(set),
-          ),
-          _MiniCard(
+            const SizedBox(height: 15),
+          ],
+          _RpeCard(key: const Key('rpeCard'), rpe: set.rpe, onTap: () => onRpe(set)),
+          const SizedBox(height: 15),
+          _CardTap(
             key: const Key('repSpeedMini'),
-            title: 'Rep speed',
-            subtitle: set.reps.isEmpty
-                ? 'No reps detected for this set.'
-                : 'Max ${fmtVelocity(set.reps.bestMeanVelocity)} · '
-                    'Avg ${fmtVelocity(set.reps.avgMeanVelocity)} m/s'
-                    '${set.reps.velocityLossPct == null ? '' : ' · loss ${fmtPct(set.reps.velocityLossPct)}'}',
-            trailing: set.reps.isEmpty
-                ? null
-                : SizedBox(
-                    width: 96,
-                    child: RepVelocityChart(
-                      velocities: [for (final r in set.reps) r.meanVelocity],
-                      showAxes: false,
-                      height: 44,
-                    ),
-                  ),
             onTap: () => showRepSpeedSheet(context,
                 session: s, setIndex: selectedIndex, all: all),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: Text('Reps', style: theme.textTheme.bodyLarge),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(22),
+                child: RepVelocityChart(
+                  velocities: [for (final r in set.reps) r.meanVelocity],
+                  height: 182,
+                ),
+              ),
+            ]),
           ),
           if (set.note != null)
             Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(set.note!, style: theme.textTheme.bodyMedium),
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(set.note!,
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(color: StanceColors.subtitleGray)),
             ),
+          const SizedBox(height: 12),
         ]),
       ),
     );
@@ -903,44 +1032,344 @@ class _SetSheet extends StatelessWidget {
     final raw = set.rawCsvFile;
     return raw == null ? error : '$error\nRaw recording saved as ${raw.split('/').last}.';
   }
+}
 
-  static String _readinessLine(ReadinessResult r, SetRecord set) {
-    final current = readinessSpeed(set);
-    if (!r.hasHistory || current == null) return 'No historical data available';
-    final c = compareReadiness(
-      current: current,
-      lastSession: r.lastSessionSpeed,
-      average: r.historicAverage,
-      setType: set.setType,
-      weightLabel: fmtWeight(set.weight, set.unit),
+/// Stance's `FeedbackSetSelector`: ‹ and › circle buttons around the set's
+/// type (gray), weight (17 sp bold; red with a note) over an "Edit" pill,
+/// and rep count (gray).
+class _SetSelector extends StatelessWidget {
+  const _SetSelector({
+    required this.session,
+    required this.selectedIndex,
+    required this.onSelect,
+    required this.onEdit,
+  });
+
+  final Session session;
+  final int selectedIndex;
+  final ValueChanged<int> onSelect;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final set = session.sets[selectedIndex];
+    final i = selectedIndex;
+    final hasPrevious = i > 0, hasNext = i < session.sets.length - 1;
+    // Stance's StanceSubheadlineMedium (15/20) and StanceHeadlineBold (17/22).
+    const sub = TextStyle(
+        fontSize: 15, height: 20 / 15, fontWeight: FontWeight.w500, color: StanceExtraColors.gray);
+    final weight = set.weight > 0 ? fmtWeight(set.weight, set.unit) : 'Set ${i + 1}';
+    // Stance's CircularIconButton, the chevron gray at either end.
+    Widget arrow(IconData icon, bool enabled, int to, String key, String tip) =>
+        Tooltip(
+          message: tip,
+          child: InkWell(
+            key: Key(key),
+            customBorder: const CircleBorder(),
+            onTap: enabled ? () => onSelect(to) : null,
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                  shape: BoxShape.circle, color: Color(0x0DFFFFFF)),
+              child: Icon(icon,
+                  color: enabled ? Colors.white : StanceExtraColors.gray),
+            ),
+          ),
+        );
+    // The summary is our own: Stance's selector has no set number. It is
+    // the selector's semantics label (and what tests look for).
+    final summary = [
+      'Set ${i + 1}',
+      if (set.weight > 0) fmtWeight(set.weight, set.unit),
+      if (set.setType != null) set.setType!.displayName,
+      '${set.reps.length} reps',
+    ].join(' · ');
+    return Semantics(
+      key: const Key('selectedSetSummary'),
+      container: true,
+      explicitChildNodes: true,
+      label: summary,
+      child: Row(key: const Key('setSelector'), children: [
+        arrow(Icons.keyboard_arrow_left, hasPrevious, i - 1, 'previousSet', 'Previous set'),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Text(set.setType?.shortName ?? '', style: sub, maxLines: 1),
+        ),
+        Expanded(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(
+              weight,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 17,
+                height: 22 / 17,
+                fontWeight: FontWeight.w700,
+                color: set.note != null ? Colors.red : Colors.white,
+              ),
+            ),
+            const SizedBox(height: 4),
+            ExtraSmallPillButton('Edit', key: const Key('editSet'), onPressed: onEdit),
+          ]),
+        ),
+        Expanded(
+          child: Text(set.reps.isEmpty ? '' : '${set.reps.length} Reps',
+              style: sub, textAlign: TextAlign.end, maxLines: 1),
+        ),
+        const SizedBox(width: 16),
+        arrow(Icons.keyboard_arrow_right, hasNext, i + 1, 'nextSet', 'Next set'),
+      ]),
     );
-    return c?.title ??
-        'Last ${fmtVelocity(r.lastSessionSpeed)} · Avg ${fmtVelocity(r.historicAverage)} m/s';
   }
 }
 
-class _MiniCard extends StatelessWidget {
-  const _MiniCard({
-    super.key,
-    required this.title,
-    this.subtitle,
-    this.trailing,
-    required this.onTap,
-  });
+/// A [stanceCard] that is one tap target.
+class _CardTap extends StatelessWidget {
+  const _CardTap({super.key, required this.onTap, required this.child, this.radius = 20});
 
-  final String title;
-  final String? subtitle;
-  final Widget? trailing;
+  final VoidCallback onTap;
+  final Widget child;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: StanceColors.cardFill,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius),
+          side: const BorderSide(color: StanceExtraColors.cardStroke),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(onTap: onTap, child: child),
+      );
+}
+
+/// Stance's `FeedbackReadinessMiniCard`: "Readiness", the verdict row when
+/// there is one, then This Session (Primary), Last Session (PrimaryLight)
+/// and Average (PrimaryVariant) speeds over 2 dp colour bars.
+class _ReadinessMiniCard extends StatelessWidget {
+  const _ReadinessMiniCard(
+      {super.key, required this.result, required this.set, required this.onTap});
+
+  final ReadinessResult result;
+  final SetRecord set;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Card(
-        margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
-          onTap: onTap,
-          title: Text(title),
-          subtitle: subtitle == null ? null : Text(subtitle!),
-          trailing: trailing,
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final verdict = _readinessVerdict(result, set);
+    Widget column(String label, double? speed, Color color, bool current) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Flexible(
+                child: Text(
+                  speed == null || speed <= 0 ? '--' : speed.toStringAsFixed(2),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: (current
+                          ? theme.textTheme.headlineMedium
+                          : theme.textTheme.titleLarge)
+                      ?.copyWith(fontWeight: FontWeight.w700)
+                      .tabular,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(left: 2, bottom: 3),
+                child: Text('m/s',
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w500)),
+              ),
+            ]),
+            const SizedBox(height: 4),
+            Container(
+              height: 2,
+              decoration: BoxDecoration(
+                  color: color, borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 4),
+            Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                    color: StanceColors.subtitleGray, fontWeight: FontWeight.w500)),
+          ],
+        );
+    return _CardTap(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text('Readiness',
+                style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500)),
+          ),
+          if (verdict != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _ReadinessVerdictRow(verdict: verdict, onSeeMore: onTap),
+            ),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+                flex: 130,
+                child: column('This Session', readinessSpeed(set), StanceColors.primary, true)),
+            const SizedBox(width: 6),
+            Expanded(
+                flex: 90,
+                child: column('Last Session', result.lastSessionSpeed,
+                    StanceColors.primaryLight, false)),
+            const SizedBox(width: 6),
+            Expanded(
+                flex: 90,
+                child: column('Average', result.historicAverage,
+                    StanceColors.primaryVariant, false)),
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Stance's `MiniComparisonRow`: in a #201B28 + Primary 8 % banner with a
+/// Pink→Primary border, the verdict ("Faster" with a bolt, "Slower" with
+/// an hourglass), "Let's go!" when faster, and "See More".
+class _ReadinessVerdictRow extends StatelessWidget {
+  const _ReadinessVerdictRow({required this.verdict, required this.onSeeMore});
+
+  final ReadinessComparison verdict;
+  final VoidCallback onSeeMore;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(1),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(
+              colors: [StanceExtraColors.pink, StanceColors.primary]),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            // Primary 8 % over FourgroundSolid.
+            color: Color.alphaBlend(
+                const Color(0x14792EFF), StanceExtraColors.fourgroundSolid),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Row(children: [
+            ExtraSmallButton(verdict.title,
+                icon: verdict.isFaster ? Icons.bolt : Icons.hourglass_bottom,
+                leadingIcon: true,
+                onPressed: onSeeMore),
+            if (verdict.isFaster) ...[
+              const SizedBox(width: 8),
+              Text("Let's go!",
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyLarge
+                      ?.copyWith(fontWeight: FontWeight.w600)),
+            ],
+            const Spacer(),
+            ExtraSmallButton('See More', onPressed: onSeeMore),
+          ]),
         ),
       );
+}
+
+/// Stance's `FeedbackVideoButton`: a 100 dp card (Stance shows the video's
+/// first frame behind it) with "Recording" and a white 12 % "Preview" pill.
+class _VideoButton extends StatelessWidget {
+  const _VideoButton({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      height: 100,
+      child: _CardTap(
+        radius: 16,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(children: [
+            Text('Recording', style: theme.textTheme.bodyLarge),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                  color: const Color(0x1FFFFFFF), borderRadius: BorderRadius.circular(20)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.play_arrow, size: 16, color: Colors.white),
+                const SizedBox(width: 4),
+                Text('Preview',
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w500)),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// Stance's `FeedbackRpeCard`: "RPE", then the RPE badge or "What RPE was
+/// the set?", and an edit circle button.
+class _RpeCard extends StatelessWidget {
+  const _RpeCard({super.key, required this.rpe, required this.onTap});
+
+  final double? rpe;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final r = rpe;
+    return _CardTap(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(children: [
+          Text('RPE', style: theme.textTheme.bodyLarge),
+          const SizedBox(width: 12),
+          if (r == null)
+            Flexible(
+              child: Text('What RPE was the set?',
+                  style: theme.textTheme.bodyLarge
+                      ?.copyWith(color: StanceColors.subtitleGray)),
+            )
+          else
+            _RpeBadge(r),
+          const Spacer(),
+          CircleIconButton(icon: Icons.edit_outlined, onPressed: onTap),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Stance's `StanceRpeBadge`: a 44 dp circle in the RPE colour at 25 %,
+/// the value in that colour (22 sp, 16 sp when longer than two chars).
+class _RpeBadge extends StatelessWidget {
+  const _RpeBadge(this.rpe);
+
+  final double rpe;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = rpeColor(rpe) ?? StanceColors.primary;
+    final text = fmtRpe(rpe);
+    return Container(
+      width: 44,
+      height: 44,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(shape: BoxShape.circle, color: color.withValues(alpha: 0.25)),
+      child: Text(text,
+          key: const Key('rpeCardValue'),
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              color: color, fontSize: text.length > 2 ? 16 : 22).tabular),
+    );
+  }
 }

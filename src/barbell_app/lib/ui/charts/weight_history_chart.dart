@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../workout/load_velocity.dart';
 import '../format.dart';
+import '../stance_theme.dart';
+import 'rep_velocity_chart.dart' show stanceAxisLabel;
 
 /// Earlier sets at one weight: a bar from the slowest to the fastest rep
 /// mean velocity, newest on the right and highlighted. Always
@@ -17,8 +19,6 @@ class WeightHistoryChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     return Semantics(
       label: 'Velocity range of the last ${points.length} sets at this weight',
       child: SizedBox(
@@ -26,13 +26,12 @@ class WeightHistoryChart extends StatelessWidget {
         child: CustomPaint(
           painter: WeightHistoryPainter(
             points: points,
-            latestColor: scheme.primary,
-            color: scheme.tertiary,
-            gridColor: scheme.outlineVariant,
-            labelStyle: theme.textTheme.labelSmall!.copyWith(
-              color: scheme.onSurfaceVariant,
-              fontFeatures: tabularFigures,
-            ),
+            // Stance: newest Primary, earlier SecondaryPrime, white 15 %
+            // grid, 11 sp white labels.
+            latestColor: StanceColors.primary,
+            color: StanceColors.secondaryPrime,
+            gridColor: const Color(0x26FFFFFF),
+            labelStyle: stanceAxisLabel.copyWith(color: Colors.white),
           ),
           child: const SizedBox.expand(),
         ),

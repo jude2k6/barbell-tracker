@@ -3,10 +3,14 @@ import 'package:flutter/material.dart';
 import '../workout/session.dart';
 import '../workout/set_metrics.dart';
 import 'charts/sticking_bar.dart';
+import 'comparison_views.dart';
 import 'format.dart';
+import 'stance_theme.dart';
 
-/// Per-rep numbers: rep #, mean and peak velocity (m/s), ROM (cm).
-/// The fastest rep by mean velocity is emphasised.
+/// Per-rep numbers: rep #, mean and peak velocity (m/s), ROM (cm), in
+/// Stance's `RepSpeedDetailsTable` panel (#232323, 8 dp corners, 12 dp
+/// padding). Stance collapses it under "View Details"; here it is open,
+/// with ROM added. The fastest rep by mean velocity is emphasised.
 class RepTable extends StatelessWidget {
   const RepTable({super.key, required this.reps});
 
@@ -15,42 +19,44 @@ class RepTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final head = theme.textTheme.labelMedium
-        ?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    final head = theme.textTheme.bodyMedium
+        ?.copyWith(color: StanceColors.subtitleGray);
     final body = theme.textTheme.bodyMedium.tabular;
     final best = reps.bestMeanVelocity;
 
     TableRow row(List<String> cells, TextStyle? style) => TableRow(children: [
           for (var i = 0; i < cells.length; i++)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               child: Text(cells[i],
                   style: style,
                   textAlign: i == 0 ? TextAlign.start : TextAlign.end),
             ),
         ]);
 
-    return Table(
-      columnWidths: const {0: FlexColumnWidth(0.7)},
-      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-      border: TableBorder(
-          horizontalInside:
-              BorderSide(color: theme.colorScheme.outlineVariant, width: 0.5)),
-      children: [
-        row(['Rep', 'Mean m/s', 'Peak m/s', 'ROM cm'], head),
-        for (final r in reps)
-          row(
-            [
-              '${r.index}',
-              fmtVelocity(r.meanVelocity),
-              fmtVelocity(r.peakVelocity),
-              fmtRomCm(r.romMeters),
-            ],
-            r.meanVelocity == best && reps.length > 1
-                ? body?.copyWith(fontWeight: FontWeight.w700)
-                : body,
-          ),
-      ],
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+          color: detailPanelFill, borderRadius: BorderRadius.circular(8)),
+      child: Table(
+        columnWidths: const {0: FlexColumnWidth(0.7)},
+        defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+        children: [
+          row(['Rep', 'Mean m/s', 'Peak m/s', 'ROM cm'], head),
+          for (final r in reps)
+            row(
+              [
+                '${r.index}',
+                fmtVelocity(r.meanVelocity),
+                fmtVelocity(r.peakVelocity),
+                fmtRomCm(r.romMeters),
+              ],
+              r.meanVelocity == best && reps.length > 1
+                  ? body?.copyWith(fontWeight: FontWeight.w700)
+                  : body,
+            ),
+        ],
+      ),
     );
   }
 }
@@ -65,6 +71,8 @@ class StickingList extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final small = theme.textTheme.bodySmall.tabular;
+    final label = theme.textTheme.labelSmall
+        ?.copyWith(color: StanceColors.subtitleGray, fontWeight: FontWeight.w500);
     final withSticking = reps.where((r) => r.sticking != null).toList();
     if (withSticking.isEmpty) return const SizedBox.shrink();
 
@@ -73,7 +81,7 @@ class StickingList extends StatelessWidget {
           children: [
             Container(width: 12, height: 12, color: c),
             const SizedBox(width: 4),
-            Text(text, style: theme.textTheme.labelSmall),
+            Text(text, style: label),
           ],
         );
 
@@ -84,9 +92,9 @@ class StickingList extends StatelessWidget {
           legend(stickingOrange, '< 75 % of peak'),
           legend(stickingRed, '< 32.5 %'),
           Row(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 2, height: 12, color: theme.colorScheme.onSurface),
+            Container(width: 2, height: 12, color: Colors.white),
             const SizedBox(width: 4),
-            Text('sticking point', style: theme.textTheme.labelSmall),
+            Text('sticking point', style: label),
           ]),
         ]),
         const SizedBox(height: 8),
@@ -109,8 +117,7 @@ class StickingList extends StatelessWidget {
             ]),
           ),
         Text('0 % = bottom, 100 % = lockout',
-            style: theme.textTheme.labelSmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            style: label),
       ],
     );
   }

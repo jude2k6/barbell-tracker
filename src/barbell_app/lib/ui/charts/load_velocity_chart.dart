@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../workout/load_velocity.dart';
 import '../format.dart';
+import '../stance_theme.dart';
+import 'rep_velocity_chart.dart' show stancePx;
 
 /// Weight (x) against set velocity (y), one dot per set, joined in weight
 /// order. An optional comparison session is drawn as a second series.
@@ -31,17 +33,19 @@ class LoadVelocityChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     final painter = LoadVelocityPainter(
       data: data,
       weightLabel: weightLabel,
       selectedSetIndex: selectedSetIndex,
-      color: scheme.primary,
-      comparisonColor: scheme.tertiary,
-      gridColor: scheme.outlineVariant,
-      labelStyle: theme.textTheme.labelSmall!.copyWith(
-        color: scheme.onSurfaceVariant,
+      // Stance: current session Primary, comparison SecondaryPrime, white
+      // 10 % grid, 11 sp gray labels.
+      color: StanceColors.primary,
+      comparisonColor: StanceColors.secondaryPrime,
+      gridColor: const Color(0x1AFFFFFF),
+      labelStyle: const TextStyle(
+        fontFamily: 'Poppins',
+        fontSize: 11,
+        color: Color(0xFF888888),
         fontFeatures: tabularFigures,
       ),
     );
@@ -126,7 +130,7 @@ class LoadVelocityPainter extends CustomPainter {
 
     final grid = Paint()
       ..color = gridColor
-      ..strokeWidth = 0.5;
+      ..strokeWidth = stancePx(1);
     for (final v in niceTicks(b.minVelocity, b.maxVelocity, 5)) {
       final y = _at(plot, b.minWeight, v).dy;
       if (y < plot.top - 0.5 || y > plot.bottom + 0.5) continue;
@@ -157,20 +161,22 @@ class LoadVelocityPainter extends CustomPainter {
       final o = _at(plot, sel.weight, sel.velocity);
       final cross = Paint()
         ..color = color.withValues(alpha: 0.6)
-        ..strokeWidth = 2;
+        ..strokeWidth = stancePx(2);
       _dashed(canvas, Offset(o.dx, plot.top), Offset(o.dx, plot.bottom), cross,
           dash: 8, gap: 6);
       _dashed(canvas, Offset(plot.left, o.dy), Offset(plot.right, o.dy), cross,
           dash: 8, gap: 6);
-      canvas.drawCircle(o, 12, Paint()..color = color.withValues(alpha: 0.35));
-      canvas.drawCircle(o, 6, Paint()..color = Colors.white);
-      canvas.drawCircle(o, 4.5, Paint()..color = color);
-      final style = labelStyle.copyWith(color: color, fontSize: 12);
+      canvas.drawCircle(
+          o, stancePx(24), Paint()..color = color.withValues(alpha: 0.35));
+      canvas.drawCircle(o, stancePx(12), Paint()..color = Colors.white);
+      canvas.drawCircle(o, stancePx(9), Paint()..color = color);
+      // Stance's value tags: Primary 20 % boxes with 6 px corners.
+      final style = labelStyle.copyWith(color: Colors.white);
       _text(canvas, sel.velocity.toStringAsFixed(2),
-          Offset(plot.right, o.dy - 2),
-          align: _Align.bottomRight, style: style);
-      _text(canvas, fmtNumber(sel.weight), Offset(o.dx, plot.top - 2),
-          align: _Align.bottomCenter, style: style);
+          Offset(plot.right, o.dy - 3),
+          align: _Align.bottomRight, style: style, box: color.withValues(alpha: 0.2));
+      _text(canvas, fmtNumber(sel.weight), Offset(o.dx, plot.top - 3),
+          align: _Align.bottomCenter, style: style, box: color.withValues(alpha: 0.2));
     }
   }
 
@@ -188,15 +194,15 @@ class LoadVelocityPainter extends CustomPainter {
         Paint()
           ..color = c
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.5
+          ..strokeWidth = stancePx(3)
           ..strokeJoin = StrokeJoin.round,
       );
     }
     for (final p in pts) {
       if (p.setIndex == skip) continue;
       final o = _at(plot, p.weight, p.velocity);
-      canvas.drawCircle(o, 10, Paint()..color = c.withValues(alpha: 0.35));
-      canvas.drawCircle(o, 4.5, Paint()..color = c);
+      canvas.drawCircle(o, stancePx(20), Paint()..color = c.withValues(alpha: 0.35));
+      canvas.drawCircle(o, stancePx(9), Paint()..color = c);
     }
   }
 
@@ -211,7 +217,7 @@ class LoadVelocityPainter extends CustomPainter {
   }
 
   void _text(Canvas canvas, String s, Offset at,
-      {_Align align = _Align.topLeft, TextStyle? style}) {
+      {_Align align = _Align.topLeft, TextStyle? style, Color? box}) {
     final tp = TextPainter(
       text: TextSpan(text: s, style: style ?? labelStyle),
       textDirection: TextDirection.ltr,
@@ -223,7 +229,15 @@ class LoadVelocityPainter extends CustomPainter {
       _Align.bottomRight => Offset(tp.width, tp.height),
       _Align.rightMiddle => Offset(tp.width, tp.height / 2),
     };
-    tp.paint(canvas, at - shift);
+    final topLeft = at - shift;
+    if (box != null) {
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              (topLeft & tp.size).inflate(stancePx(4)),
+              Radius.circular(stancePx(6))),
+          Paint()..color = box);
+    }
+    tp.paint(canvas, topLeft);
   }
 
   @override

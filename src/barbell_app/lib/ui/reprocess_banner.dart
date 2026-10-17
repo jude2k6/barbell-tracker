@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../workout/reprocess.dart';
+import 'comparison_views.dart';
+import 'stance_theme.dart';
 
 /// Stance's `ReprocessBanner` (notes §24), on the feedback page's set sheet
 /// for a set that needs reprocessing: the message for [state], then
@@ -24,41 +26,42 @@ class ReprocessBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final onColor = scheme.onErrorContainer;
-    return Card(
+    // Stance: #3A3A3C panel, 12 dp corners, 14/10 dp padding, the message
+    // in bodySmall #E5C07B, then a 40 dp Primary button.
+    final text = theme.textTheme.bodySmall?.copyWith(color: const Color(0xFFE5C07B));
+    return Container(
       key: const Key('reprocessBanner'),
-      margin: EdgeInsets.zero,
-      color: scheme.errorContainer,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(state.message,
-              key: const Key('reprocessMessage'),
-              style: theme.textTheme.bodyMedium?.copyWith(color: onColor)),
-          if (detail != null) ...[
-            const SizedBox(height: 4),
-            Text(detail!,
-                style: theme.textTheme.bodySmall?.copyWith(color: onColor)),
-          ],
-          if (state.showsButton) ...[
-            const SizedBox(height: 10),
-            FilledButton(
-              key: const Key('reprocessButton'),
-              onPressed: state == ReprocessState.inProgress ? null : onReprocess,
-              child: state == ReprocessState.inProgress
-                  ? const Row(mainAxisSize: MainAxisSize.min, children: [
-                      SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2)),
-                      SizedBox(width: 8),
-                      Text('Reprocessing…'),
-                    ])
-                  : const Text('Reprocess'),
-            ),
-          ],
-        ]),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+          color: const Color(0xFF3A3A3C), borderRadius: BorderRadius.circular(12)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text(state.message, key: const Key('reprocessMessage'), style: text),
+        if (detail != null) ...[
+          const SizedBox(height: 4),
+          Text(detail!, style: text?.copyWith(color: StanceColors.subtitleGray)),
+        ],
+        if (state.showsButton) ...[
+          const SizedBox(height: 10),
+          FilledButton(
+            key: const Key('reprocessButton'),
+            style: stanceButtonStyle(context).copyWith(
+                // Stance keeps the Primary fill while it runs.
+                backgroundColor: const WidgetStatePropertyAll(StanceColors.primary),
+                foregroundColor: const WidgetStatePropertyAll(Colors.white)),
+            onPressed: state == ReprocessState.inProgress ? null : onReprocess,
+            child: state == ReprocessState.inProgress
+                ? const Row(mainAxisSize: MainAxisSize.min, children: [
+                    SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white)),
+                    SizedBox(width: 10),
+                    Text('Reprocessing…'),
+                  ])
+                : const Text('Reprocess'),
+          ),
+        ],
+      ]),
     );
   }
 }

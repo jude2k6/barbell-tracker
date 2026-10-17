@@ -119,9 +119,11 @@ void main() {
       expect(calls, 1);
 
       done.complete(_analysis(3));
-      await _pumpUntil(tester, find.text('Set 1 · 140 kg · Top set · 3 reps'));
+      // The set selector's semantics label sums the set up.
+      final summary = find.bySemanticsLabel('Set 1 · 140 kg · Top set · 3 reps');
+      await _pumpUntil(tester, summary);
       expect(find.byKey(const Key('reprocessBanner')), findsNothing);
-      expect(find.text('Set 1 · 140 kg · Top set · 3 reps'), findsOneWidget);
+      expect(summary, findsOneWidget);
       await _settle(tester);
       final saved = (await tester.runAsync(() => store.load('sess')))!.sets.single;
       expect(saved.reps, hasLength(3));

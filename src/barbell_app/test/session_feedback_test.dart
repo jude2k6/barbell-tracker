@@ -99,10 +99,13 @@ Future<void> _realWait(WidgetTester tester, Duration d) async {
   await tester.pump(const Duration(milliseconds: 300));
 }
 
+/// The selected set's summary (the set selector's semantics label).
+Finder _summary(String text) => find.bySemanticsLabel(text);
+
 /// Drags the set sheet up from its peek height, as a user would.
 Future<void> _expandSheet(WidgetTester tester) async {
-  await tester.drag(
-      find.byKey(const Key('selectedSetSummary')), const Offset(0, -2000));
+  await tester.drag(find.byKey(const Key('selectedSetSummary')), const Offset(0, -2000),
+      warnIfMissed: false);
   await tester.pumpAndSettle();
 }
 
@@ -276,18 +279,22 @@ void main() {
     await _settleIo(tester);
     expect(find.byKey(const Key('tagPrompt')), findsNothing);
     expect((await saved(tester)).tags, ['Day:Secondary']);
-    expect(find.text('Day: Secondary'), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byKey(const Key('dayTypeDropdown')),
+            matching: find.text('Secondary')),
+        findsOneWidget);
 
     // The dropdown changes it, or clears it with None.
     await tester.tap(find.byKey(const Key('dayTypeDropdown')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Day: Primary').last);
+    await tester.tap(find.text('Primary').last);
     await tester.pumpAndSettle();
     await _settleIo(tester);
     expect((await saved(tester)).tags, ['Day:Primary']);
     await tester.tap(find.byKey(const Key('dayTypeDropdown')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Day: None').last);
+    await tester.tap(find.text('None').last);
     await tester.pumpAndSettle();
     await _settleIo(tester);
     expect((await saved(tester)).tags, isEmpty);
@@ -320,6 +327,9 @@ void main() {
     expect((await saved(tester)).tags, ['Block:7', 'Week:2']);
     // No session type now, so the question comes back.
     expect(find.byKey(const Key('tagPrompt')), findsOneWidget);
+    // It covers the page, as in Stance; put it away first.
+    await tester.tap(find.byKey(const Key('dismissTagPrompt')));
+    await tester.pump();
 
     // Dismissing keeps the edits too; the extra Block page stays open for a
     // selected tag beyond the first six.
@@ -368,7 +378,7 @@ void main() {
     expect(find.byKey(const Key('guideTip')), findsOneWidget);
     expect(find.textContaining('You moved 140 kg at 0.60m/s'), findsOneWidget);
     expect(prefs.hasSeen(Guide.readinessTip), isTrue);
-    await tester.tap(find.text('Got it'));
+    await tester.tap(find.text('Dismiss'));
     await tester.pumpAndSettle();
   });
 
@@ -379,8 +389,7 @@ void main() {
       _set('b', 140, _threeReps, minute: 5),
     ]));
 
-    expect(find.text('Set 2 · 140 kg · Top set · 3 reps'), findsOneWidget);
-    expect(find.text('Max 0.60 · Avg 0.53 m/s · loss 25 %'), findsOneWidget);
+    expect(_summary('Set 2 · 140 kg · Top set · 3 reps'), findsOneWidget);
 
     await _expandSheet(tester);
     await tester.tap(find.byKey(const Key('repSpeedMini')));
@@ -399,14 +408,17 @@ void main() {
     expect(find.byType(StickingBar), findsNWidgets(2));
   });
 
-  testWidgets('selecting a set chip changes the sheet', (tester) async {
+  testWidgets('the set selector\'s arrows change the sheet', (tester) async {
     await open(tester, _session([
       _set('a', 100, [_rep(1, 0.7)]),
       _set('b', 140, _threeReps, minute: 5),
     ]));
-    await tester.tap(find.byKey(const ValueKey('setChip-0')));
+    await tester.tap(find.byKey(const Key('previousSet')));
     await tester.pump();
-    expect(find.text('Set 1 · 100 kg · Top set · 1 reps'), findsOneWidget);
+    expect(_summary('Set 1 · 100 kg · Top set · 1 reps'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('nextSet')));
+    await tester.pump();
+    expect(_summary('Set 2 · 140 kg · Top set · 3 reps'), findsOneWidget);
   });
 
   testWidgets('RPE is saved from the RPE sheet and can be cleared',
@@ -414,6 +426,7 @@ void main() {
     await open(tester, _session([_set('a', 140, _threeReps)]));
     expect(find.byKey(const Key('rpeCardValue')), findsNothing);
 
+    await _expandSheet(tester);
     await tester.tap(find.byKey(const Key('rpeCard')));
     await tester.pumpAndSettle();
     expect(tester.widget<Text>(find.byKey(const Key('rpeValue'))).data, '8');
@@ -483,7 +496,7 @@ void main() {
     var saved = (await tester.runAsync<Session?>(() => store.load('sess')))!;
     expect(saved.sets.last.weight, 142.5);
     expect(saved.sets.last.setType, SetType.backoff);
-    expect(find.text('Set 2 · 142.5 kg · Backoff · 3 reps'), findsOneWidget);
+    expect(_summary('Set 2 · 142.5 kg · Backoff · 3 reps'), findsOneWidget);
 
     Future<void> deleteSelected() async {
       await tester.tap(find.byKey(const Key('editSet')));
@@ -498,7 +511,7 @@ void main() {
     await deleteSelected();
     saved = (await tester.runAsync<Session?>(() => store.load('sess')))!;
     expect(saved.sets.map((s) => s.id), ['a']);
-    await _pumpUntil(tester, find.text('Set 1 · 100 kg · Top set · 1 reps'));
+    await _pumpUntil(tester, _summary('Set 1 · 100 kg · Top set · 1 reps'));
 
     await deleteSelected();
     expect(await tester.runAsync<Session?>(() => store.load('sess')), isNull);

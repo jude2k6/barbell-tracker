@@ -291,8 +291,11 @@ void main() {
       expect(find.text('weight'), findsNothing);
       expect(find.byType(SessionFeedbackPage), findsOneWidget);
       // It reloaded and selected the new set.
-      await _pumpUntil(tester, find.textContaining('Set 2 · 100 kg'));
-      expect(tester.widget<Text>(find.byKey(const Key('selectedSetSummary'))).data,
+      await _pumpUntil(tester, find.bySemanticsLabel(RegExp(r'^Set 2 · 100 kg')));
+      expect(
+          tester.widget<Semantics>(find.byKey(const Key('selectedSetSummary')))
+              .properties
+              .label,
           startsWith('Set 2 '));
     });
   });

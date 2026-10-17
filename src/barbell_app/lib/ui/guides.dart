@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../analysis/exercises.dart';
 import '../workout/guide_tips.dart';
+import 'comparison_views.dart';
+import 'stance_theme.dart';
 
 /// Stance's step-by-step guides (notes §17), shown in a paging dialog.
 class GuideStep {
@@ -76,74 +78,280 @@ List<GuideStep> preRecordingGuideSteps({required bool deadlift}) => [
               'Device, then connect to it\n\nNOTE: Allow Bluetooth access when asked.'),
     ];
 
-/// Pages through [steps]; the last page's button says [doneLabel].
+/// Pages through [steps] in Stance's `FeedbackWalkthroughOverlay` card;
+/// the last page's button says [doneLabel].
 Future<void> showGuide(BuildContext context, List<GuideStep> steps,
         {String doneLabel = 'Done'}) =>
-    showDialog<void>(
+    showGeneralDialog<void>(
       context: context,
-      builder: (_) => _GuideDialog(steps: steps, doneLabel: doneLabel),
+      barrierDismissible: false,
+      barrierColor: const Color(0x99000000),
+      pageBuilder: (_, _, _) => _GuideOverlay(steps: steps, doneLabel: doneLabel),
     );
 
-class _GuideDialog extends StatefulWidget {
-  const _GuideDialog({required this.steps, required this.doneLabel});
+/// Stance's `GuideTipOverlay`: Pink→Primary at 70 %, the card border.
+const _guideBorder = LinearGradient(
+  begin: Alignment.topCenter,
+  end: Alignment.bottomCenter,
+  colors: [Color(0xB3F415C3), Color(0xB3792EFF)],
+);
+
+/// A rounded box with a gradient [border] of [width] around [child].
+class _GradientBorderBox extends StatelessWidget {
+  const _GradientBorderBox({
+    super.key,
+    required this.gradient,
+    required this.width,
+    required this.color,
+    required this.child,
+  });
+
+  final Gradient gradient;
+  final double width;
+  final Color color;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        decoration: BoxDecoration(
+            gradient: gradient, borderRadius: BorderRadius.circular(16)),
+        padding: EdgeInsets.all(width),
+        child: Container(
+          decoration: BoxDecoration(
+              color: color, borderRadius: BorderRadius.circular(16 - width)),
+          child: child,
+        ),
+      );
+}
+
+/// Stance's "AI" mark beside a guide: its `stance_ai` drawable (here a
+/// sparkle icon) over a 4 dp SecondaryPrime→Primary bar as tall as the text.
+class _GuideMark extends StatelessWidget {
+  const _GuideMark();
+
+  @override
+  Widget build(BuildContext context) => Column(children: [
+        const Icon(Icons.auto_awesome, size: 20, color: StanceColors.secondaryPrime),
+        const SizedBox(height: 8),
+        Expanded(
+          child: Container(
+            width: 4,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0x80B557FF), Color(0x80792EFF)],
+              ),
+            ),
+          ),
+        ),
+      ]);
+}
+
+class _GuideOverlay extends StatefulWidget {
+  const _GuideOverlay({required this.steps, required this.doneLabel});
 
   final List<GuideStep> steps;
   final String doneLabel;
 
   @override
-  State<_GuideDialog> createState() => _GuideDialogState();
+  State<_GuideOverlay> createState() => _GuideOverlayState();
 }
 
-class _GuideDialogState extends State<_GuideDialog> {
+class _GuideOverlayState extends State<_GuideOverlay> {
   int _i = 0;
 
   @override
   Widget build(BuildContext context) {
     final step = widget.steps[_i];
     final last = _i == widget.steps.length - 1;
-    return AlertDialog(
-      key: const Key('guideDialog'),
-      title: Text(step.title),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(step.body),
-          const SizedBox(height: 12),
-          Text('${_i + 1} / ${widget.steps.length}',
-              style: Theme.of(context).textTheme.labelSmall),
-        ],
-      ),
-      actions: [
-        if (_i > 0)
-          TextButton(onPressed: () => setState(() => _i--), child: const Text('Back')),
-        if (!last)
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(), child: const Text('Skip')),
-        FilledButton(
-          key: const Key('guideNext'),
-          onPressed: last
-              ? () => Navigator.of(context).pop()
-              : () => setState(() => _i++),
-          child: Text(last ? widget.doneLabel : 'Next'),
+    void hide() => Navigator.of(context).pop();
+    const title = TextStyle(
+        fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white);
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 60, 16, 16),
+          child: Material(
+            type: MaterialType.transparency,
+            child: _GradientBorderBox(
+              key: const Key('guideDialog'),
+              gradient: _guideBorder,
+              width: 2,
+              color: StanceExtraColors.fourgroundSolid,
+              child: Padding(
+                padding: const EdgeInsets.all(15),
+                child: IntrinsicHeight(
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    const _GuideMark(),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [
+                            Expanded(child: Text(step.title, style: title)),
+                            const SizedBox(width: 8),
+                            Text('${_i + 1} / ${widget.steps.length}',
+                                style: title.copyWith(fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 8),
+                            ExtraSmallButton('Hide', onPressed: hide),
+                          ]),
+                          const SizedBox(height: 8),
+                          Text(step.body,
+                              style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: StanceColors.subtitleGray)),
+                          const SizedBox(height: 16),
+                          Row(children: [
+                            for (var d = 0; d < widget.steps.length; d++)
+                              Container(
+                                width: 6,
+                                height: 6,
+                                margin: const EdgeInsets.only(right: 6),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: d == _i
+                                      ? StanceColors.primary
+                                      : const Color(0x40792EFF),
+                                ),
+                              ),
+                            const Spacer(),
+                            if (_i > 0) ...[
+                              ExtraSmallButton('Previous',
+                                  icon: Icons.arrow_back,
+                                  leadingIcon: true,
+                                  onPressed: () => setState(() => _i--)),
+                              const SizedBox(width: 8),
+                            ],
+                            ExtraSmallButton(
+                              last ? widget.doneLabel : 'Next',
+                              key: const Key('guideNext'),
+                              icon: last ? null : Icons.arrow_forward,
+                              onPressed: last ? hide : () => setState(() => _i++),
+                            ),
+                          ]),
+                        ],
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+          ),
         ),
-      ],
+      ),
     );
   }
 }
 
-Future<void> showGuideTip(BuildContext context, GuideTip tip) => showDialog<void>(
+/// Stance's `GuideTipInstructionOverlay` (`GuideTipScaffold`): a card at
+/// the top over a 60 % black scrim, with "Dismiss".
+Future<void> showGuideTip(BuildContext context, GuideTip tip) =>
+    showGeneralDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        key: const Key('guideTip'),
-        title: const Text(GuideTip.title),
-        content: Text(tip.message),
-        actions: [
-          FilledButton(
-              onPressed: () => Navigator.of(context).pop(), child: const Text('Got it')),
-        ],
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: const Color(0x99000000),
+      pageBuilder: (context, _, _) {
+        final theme = Theme.of(context);
+        return SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 10, 24, 16),
+              child: Material(
+                type: MaterialType.transparency,
+                child: _GradientBorderBox(
+                  key: const Key('guideTip'),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xB3B557FF), Color(0xB3792EFF)],
+                  ),
+                  width: 1,
+                  color: const Color(0xFF101010),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(15, 9, 15, 12),
+                    child: IntrinsicHeight(
+                      child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const _GuideMark(),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(children: [
+                                    const Spacer(),
+                                    ExtraSmallButton('Dismiss',
+                                        onPressed: () => Navigator.of(context).pop()),
+                                  ]),
+                                  const SizedBox(height: 6),
+                                  Text(GuideTip.title,
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(fontWeight: FontWeight.w700)),
+                                  Text(tip.message,
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                          color: StanceColors.subtitleGray)),
+                                ],
+                              ),
+                            ),
+                          ]),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+/// Stance's `ExtraSmallButton` (GuideTipOverlay): a Purple2 20 % pill with
+/// Purple1 11 sp bold text and an optional 14 dp icon.
+class ExtraSmallButton extends StatelessWidget {
+  const ExtraSmallButton(this.text,
+      {super.key, required this.onPressed, this.icon, this.leadingIcon = false});
+
+  final String text;
+  final VoidCallback? onPressed;
+  final IconData? icon;
+  final bool leadingIcon;
+
+  @override
+  Widget build(BuildContext context) {
+    final glyph = icon == null
+        ? null
+        : Icon(icon, size: 14, color: StanceExtraColors.purple1);
+    return Material(
+      color: const Color(0x33782EFD),
+      shape: const StadiumBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (leadingIcon && glyph != null) ...[glyph, const SizedBox(width: 2)],
+            Text(text,
+                style: const TextStyle(
+                    fontSize: 11,
+                    height: 16 / 11,
+                    fontWeight: FontWeight.w700,
+                    color: StanceExtraColors.purple1)),
+            if (!leadingIcon && glyph != null) ...[const SizedBox(width: 2), glyph],
+          ]),
+        ),
       ),
     );
+  }
+}
 
 /// Stance's `PreRecordingTips.poolFor`: general tips plus the exercise
 /// family's. Its "Run STANCE with an internet connection" tip is left out:
