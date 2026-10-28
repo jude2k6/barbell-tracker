@@ -8,6 +8,9 @@ import '../video/overlay_timeline.dart';
 import '../video/set_video_export_rules.dart';
 import '../video/set_video_exporter.dart';
 import '../workout/session.dart';
+import 'app_theme.dart';
+import 'app_widgets.dart';
+import 'charts/rep_velocity_chart.dart' show chartAxisLabel;
 import 'charts/sticking_bar.dart';
 import 'charts/velocity_chart.dart';
 import 'format.dart';
@@ -140,7 +143,10 @@ class _VideoReviewPageState extends State<VideoReviewPage> {
         title: Text(widget.title),
         actions: [
           if (widget.onSaveOffset != null && _offset != _savedOffset)
-            TextButton(onPressed: _save, child: const Text('Save sync')),
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: AppSmallButton('Save sync', onPressed: _save),
+            ),
           IconButton(
             tooltip: 'Share',
             icon: const Icon(Icons.share, color: Colors.white),
@@ -210,6 +216,7 @@ class _VideoReviewPageState extends State<VideoReviewPage> {
                   Row(
                     children: [
                       IconButton(
+                        color: Colors.white,
                         icon: Icon(
                           _player.value.isPlaying
                               ? Icons.pause
@@ -220,7 +227,16 @@ class _VideoReviewPageState extends State<VideoReviewPage> {
                             : _player.play(),
                       ),
                       Expanded(
-                        child: Slider(
+                        // The RPE slider's look: white thumb, Primary
+                        // track on white 15 %.
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            thumbColor: Colors.white,
+                            activeTrackColor: AppColors.primary,
+                            inactiveTrackColor: const Color(0x26FFFFFF),
+                            trackHeight: 4,
+                          ),
+                          child: Slider(
                           value: pos.inMilliseconds
                               .clamp(0, dur.inMilliseconds)
                               .toDouble(),
@@ -230,13 +246,16 @@ class _VideoReviewPageState extends State<VideoReviewPage> {
                           ),
                           onChanged: (v) =>
                               _player.seekTo(Duration(milliseconds: v.round())),
+                          ),
                         ),
                       ),
                       Padding(
                         padding: const EdgeInsets.only(right: 12),
                         child: Text(
                           fmtElapsed(pos),
-                          style: theme.textTheme.bodySmall.tabular,
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: AppColors.subtitleGray)
+                              .tabular,
                         ),
                       ),
                     ],
@@ -244,29 +263,27 @@ class _VideoReviewPageState extends State<VideoReviewPage> {
                 if (set.reps.isNotEmpty)
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
+                      spacing: 8,
                       children: [
+                        // Small pills: Primary for the rep on screen,
+                        // secondary for the rest.
                         for (final r in set.reps)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text(
-                                'Rep ${r.index} · ${fmtVelocity(r.meanVelocity)}',
-                              ),
-                              selected: frame.headline?.index == r.index,
-                              onSelected: (_) async {
-                                await _player.seekTo(_timeline.seekTarget(r));
-                                await _player.play();
-                              },
-                            ),
+                          AppSmallButton(
+                            'Rep ${r.index} · ${fmtVelocity(r.meanVelocity)}',
+                            secondary: frame.headline?.index != r.index,
+                            onPressed: () async {
+                              await _player.seekTo(_timeline.seekTarget(r));
+                              await _player.play();
+                            },
                           ),
                       ],
                     ),
                   ),
                 if (set.velocityTrace.length > 1 && set.traceHz != null)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                     child: SizedBox(
                       height: 140,
                       child: CustomPaint(
@@ -277,14 +294,14 @@ class _VideoReviewPageState extends State<VideoReviewPage> {
                             for (final r in set.reps)
                               RepWindow(r.index, r.startSec, r.endSec),
                           ],
-                          lineColor: theme.colorScheme.primary,
-                          shadeColor: theme.colorScheme.primary.withValues(
+                          lineColor: AppColors.primary,
+                          shadeColor: AppColors.primary.withValues(
                             alpha: 0.12,
                           ),
-                          gridColor: theme.colorScheme.outlineVariant,
-                          labelStyle: theme.textTheme.labelSmall!,
+                          gridColor: const Color(0x26FFFFFF),
+                          labelStyle: chartAxisLabel,
                           playheadSec: frame.sensorSec,
-                          playheadColor: theme.colorScheme.error,
+                          playheadColor: AppColors.error,
                         ),
                         child: const SizedBox.expand(),
                       ),
@@ -295,21 +312,32 @@ class _VideoReviewPageState extends State<VideoReviewPage> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          'Sync ${_offset >= 0 ? '+' : ''}${_offset.toStringAsFixed(2)} s\n'
-                          'Nudge if the overlay leads or lags the bar.',
-                          style: theme.textTheme.bodySmall,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Sync ${_offset >= 0 ? '+' : ''}${_offset.toStringAsFixed(2)} s',
+                              style: theme.textTheme.bodyLarge.tabular,
+                            ),
+                            Text(
+                              'Nudge if the overlay leads or lags the bar.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: AppColors.subtitleGray,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      IconButton.outlined(
+                      const SizedBox(width: 8),
+                      CircleIconButton(
                         tooltip: 'Overlay earlier',
-                        icon: const Icon(Icons.fast_rewind),
+                        icon: Icons.fast_rewind,
                         onPressed: () => _nudge(0.05),
                       ),
                       const SizedBox(width: 8),
-                      IconButton.outlined(
+                      CircleIconButton(
                         tooltip: 'Overlay later',
-                        icon: const Icon(Icons.fast_forward),
+                        icon: Icons.fast_forward,
                         onPressed: () => _nudge(-0.05),
                       ),
                     ],
@@ -367,7 +395,8 @@ class _MetricsPanel extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 220),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.55),
+          // Black 60 %, as Stance's burned-in overlay panel.
+          color: Colors.black.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Padding(

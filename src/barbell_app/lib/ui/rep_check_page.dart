@@ -1,26 +1,35 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 
+import '../video/overlay_timeline.dart';
 import '../workout/preferences.dart';
 import '../workout/rep_editing.dart';
 import '../workout/session.dart';
 import 'app_theme.dart';
 import 'app_widgets.dart';
-import 'charts/velocity_chart.dart';
+import 'charts/rep_check_chart.dart';
 import 'format.dart';
 import 'guides.dart';
 
-/// Stance's Rep Check (`RepCheckSheet`, notes §17): the set's reps as markers on its
-/// velocity trace. Drag a rep's start and end, delete a rep, or add one by
-/// setting a start and end time with the scrubber. Adds and deletes are
-/// saved at once through [onCommit]; moved markers on Save.
+/// What the unsaved-changes dialog chose.
+enum _LeaveChoice { save, discard }
+
+/// Stance's Rep Check (`RepCheckSheet`, notes §17 and §28): the set's reps
+/// as markers on its velocity trace, with the set's video above when it has
+/// one. Drag a marker's R#s/R#e bubble to move it; drag across the chart to
+/// scrub (the video follows). Delete a rep, or add one by scrubbing to its
+/// start and end. Adds and deletes are saved at once through [onCommit];
+/// moved markers on Save.
 class RepCheckPage extends StatefulWidget {
   const RepCheckPage({
     super.key,
     required this.set,
     required this.onCommit,
     this.preferences,
+    this.video,
   });
 
   final SetRecord set;
@@ -32,6 +41,9 @@ class RepCheckPage extends StatefulWidget {
   /// Remembers that the rep edit guide was seen; null never auto-shows it.
   final PreferencesStore? preferences;
 
+  /// The set's video file, shown synced to the scrubber; null hides it.
+  final File? video;
+
   @override
   State<RepCheckPage> createState() => _RepCheckPageState();
 }
@@ -41,15 +53,18 @@ class _RepCheckPageState extends State<RepCheckPage> {
   late List<RepMarker> _markers = markersOf(widget.set);
   bool _dirty = false;
   bool _saving = false;
-  late double _scrub = 0;
+  late double _windowStart, _scrub;
+  bool _adding = false;
   double? _addStart, _addEnd;
   Timer? _guideTimer;
 
   double get _duration => traceDurationSec(_set);
+  RepCheckRange get _range => RepCheckRange(_markers, _duration);
 
   @override
   void initState() {
     super.initState();
+    _resetView();
     final prefs = widget.preferences;
     if (prefs != null && canEditReps(_set) && !prefs.hasSeen(Guide.repEditGuide)) {
       // Stance's REP_EDIT_GUIDE_DELAY_MS.
@@ -59,6 +74,15 @@ class _RepCheckPageState extends State<RepCheckPage> {
         showGuide(context, repEditGuideSteps);
       });
     }
+  }
+
+  /// As Stance re-keys its view state on the saved markers: the window
+  /// centred on the reps and the scrubber in its middle.
+  void _resetView() {
+    final range = _range;
+    _windowStart = range.initialWindowStart(markersOf(_set));
+    final (lo, hi) = range.visible(_windowStart);
+    _scrub = (lo + hi) / 2;
   }
 
   @override
@@ -77,7 +101,9 @@ class _RepCheckPageState extends State<RepCheckPage> {
         _set = saved;
         _markers = markersOf(saved);
         _dirty = false;
+        _adding = false;
         _addStart = _addEnd = null;
+        _resetView();
       }
     });
     if (saved == null) await _error('Velocity data may not be available for this set.');
@@ -113,33 +139,60 @@ class _RepCheckPageState extends State<RepCheckPage> {
         ],
       ),
     );
-    if (ok == true) await _commit([..._markers]..removeAt(i));
+    if (ok != true) return;
+    final rest = [..._markers]..removeAt(i);
+    await _commit(rest);
+    // Stance closes Rep Check once the last rep is deleted.
+    if (rest.isEmpty && mounted && !_dirty) Navigator.of(context).pop();
   }
 
-  void _setStart() {
-    final err = validateAddTime(_markers, _scrub, isStart: true);
-    if (err != null) {
-      _error(addTimeErrorText(err));
-      return;
-    }
+  void _scrubTo(double t) {
+    final r = _range.scrub(t, _windowStart);
     setState(() {
-      _addStart = _scrub;
-      _addEnd = null;
+      _scrub = r.scrub;
+      _windowStart = r.windowStart;
     });
   }
 
-  void _setEnd() {
-    final err = validateAddTime(_markers, _scrub, isStart: false, start: _addStart);
-    if (err != null) {
-      _error(addTimeErrorText(err));
-      return;
+  void _moveMarker(int i, bool isStart, double t) => setState(() {
+        _markers = moveMarker(_markers, i,
+            isStart: isStart, t: t, durationSec: _duration);
+        _dirty = true;
+      });
+
+  /// Stance's `handleAddRepAction`: one button sets the start, then the
+  /// end, then adds the rep, each at the scrubber.
+  void _addRepAction() {
+    if (_addStart == null) {
+      final err = validateAddTime(_markers, _scrub, isStart: true);
+      if (err != null) {
+        _error(addTimeErrorText(err));
+      } else {
+        setState(() => _addStart = _scrub);
+      }
+    } else if (_addEnd == null) {
+      final err =
+          validateAddTime(_markers, _scrub, isStart: false, start: _addStart);
+      if (err != null) {
+        _error(addTimeErrorText(err));
+      } else {
+        setState(() => _addEnd = _scrub);
+      }
+    } else if (!_saving) {
+      _commit([..._markers, RepMarker(_addStart!, _addEnd!)]);
     }
-    setState(() => _addEnd = _scrub);
   }
 
+  void _setAdding(bool adding) => setState(() {
+        _adding = adding;
+        _addStart = _addEnd = null;
+      });
+
+  /// Stance's unsaved-changes dialog: Save, Discard or Cancel. True when
+  /// the page may close.
   Future<bool> _confirmLeave() async {
     if (!_dirty) return true;
-    final save = await showDialog<bool>(
+    final choice = await showDialog<_LeaveChoice>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Unsaved Changes'),
@@ -147,15 +200,22 @@ class _RepCheckPageState extends State<RepCheckPage> {
             'to save them before closing?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              key: const Key('unsavedSave'),
+              onPressed: () => Navigator.pop(context, _LeaveChoice.save),
+              child: const Text('Save')),
+          TextButton(
+              key: const Key('unsavedDiscard'),
+              onPressed: () => Navigator.pop(context, _LeaveChoice.discard),
               child: const Text('Discard')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, true), child: const Text('Save')),
+          TextButton(
+              key: const Key('unsavedCancel'),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
         ],
       ),
     );
-    if (save == null) return false;
-    if (save) await _commit(_markers);
+    if (choice == null) return false;
+    if (choice == _LeaveChoice.save) await _commit(_markers);
     return true;
   }
 
@@ -174,9 +234,12 @@ class _RepCheckPageState extends State<RepCheckPage> {
       },
       child: Scaffold(
         body: SafeArea(
-          child: Column(children: [
-            _header(theme),
-            Expanded(child: _content(theme, editable)),
+          child: Stack(children: [
+            Column(children: [
+              _header(theme),
+              Expanded(child: _content(theme, editable)),
+            ]),
+            if (_saving) Center(child: _savingOverlay(theme)),
           ]),
         ),
       ),
@@ -205,6 +268,22 @@ class _RepCheckPageState extends State<RepCheckPage> {
         ]),
       );
 
+  /// Stance's "Saving changes…" card: black 80 %, spinner and text.
+  Widget _savingOverlay(ThemeData theme) => Container(
+        key: const Key('repCheckSaving'),
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.8),
+            borderRadius: BorderRadius.circular(16)),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const CircularProgressIndicator(color: Colors.white),
+          const SizedBox(height: 16),
+          Text('Saving changes…',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                  color: Colors.white, fontWeight: FontWeight.w600)),
+        ]),
+      );
+
   Widget _content(ThemeData theme, bool editable) {
     if (!editable) {
       return Center(
@@ -224,6 +303,9 @@ class _RepCheckPageState extends State<RepCheckPage> {
         ]),
       );
     }
+    final range = _range;
+    final (lo, hi) = range.visible(_windowStart);
+    final video = widget.video;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       children: [
@@ -236,7 +318,7 @@ class _RepCheckPageState extends State<RepCheckPage> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           child: Text(
             'Check each rep against the velocity chart. Drag a marker to '
             'adjust its start and end, or add and delete reps, then save '
@@ -245,117 +327,244 @@ class _RepCheckPageState extends State<RepCheckPage> {
                 ?.copyWith(color: AppColors.subtitleGray),
           ),
         ),
-        VelocityChart(
+        if (video != null) ...[
+          const SizedBox(height: 8),
+          RepCheckVideo(
+            key: const Key('repCheckVideo'),
+            file: video,
+            timeline: OverlayTimeline(_set),
+            scrubSec: _scrub,
+          ),
+        ],
+        const SizedBox(height: 12),
+        RepCheckChart(
           velocity: _set.velocityTrace,
           hz: _set.traceHz!,
-          reps: [
-            for (final (i, m) in _markers.indexed)
-              RepWindow(i + 1, m.startSec, m.endSec),
-          ],
+          markers: _markers,
+          original: markersOf(_set),
+          windowStart: lo,
+          windowEnd: hi,
+          scrubSec: _scrub,
+          onScrub: _scrubTo,
+          adding: _adding,
+          addStart: _addStart,
+          addEnd: _addEnd,
+          height: video != null ? 200 : 280,
         ),
-        if (_saving) ...[
+        // The bubbles line up with the chart's plot, inside its 12 dp padding.
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: RepMarkerBubbleRow(
+            markers: _markers,
+            windowStart: lo,
+            windowEnd: hi,
+            adding: _adding,
+            onMoved: _moveMarker,
+          ),
+        ),
+        if (range.scrolls) _windowSlider(range),
+        if (_adding) _addRepPanel(theme) else ...[
           const SizedBox(height: 8),
-          const LinearProgressIndicator(),
-        ],
-        const SizedBox(height: 8),
-        for (final (i, m) in _markers.indexed) _repRow(theme, i, m),
-        const SizedBox(height: 16),
-        Text('Add Rep', style: theme.textTheme.titleSmall),
-        Row(children: [
-          Expanded(
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                activeTrackColor: AppColors.primary,
-                thumbColor: AppColors.primary,
-                inactiveTrackColor: Colors.white.withValues(alpha: 0.2),
-              ),
-              child: Slider(
-                key: const Key('scrubber'),
-                value: _scrub.clamp(0, _duration),
-                max: _duration,
-                onChanged: (v) => setState(() => _scrub = v),
-              ),
+          for (final (i, m) in _markers.indexed) ...[
+            _repRow(theme, i, m),
+            const SizedBox(height: 8),
+          ],
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: AppButton(
+              key: const Key('addRep'),
+              text: 'Add Rep',
+              style: AppButtonStyle.secondary,
+              onPressed: () => _setAdding(true),
             ),
           ),
-          Text('${_scrub.toStringAsFixed(2)} s',
-              style: theme.textTheme.bodyMedium.tabular),
-        ]),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          OutlinedButton(
-            key: const Key('setStart'),
-            onPressed: _setStart,
-            child: Text(_addStart == null
-                ? 'Set start time'
-                : 'Start: ${_addStart!.toStringAsFixed(2)} s'),
-          ),
-          OutlinedButton(
-            key: const Key('setEnd'),
-            onPressed: _addStart == null ? null : _setEnd,
-            child: Text(_addEnd == null
-                ? 'Set end time'
-                : 'End: ${_addEnd!.toStringAsFixed(2)} s'),
-          ),
-          FilledButton(
-            key: const Key('addRep'),
-            onPressed: _addStart != null && _addEnd != null && !_saving
-                ? () => _commit([..._markers, RepMarker(_addStart!, _addEnd!)])
-                : null,
-            child: const Text('Add Rep'),
-          ),
-        ]),
+        ],
       ],
     );
   }
 
-  Widget _repRow(ThemeData theme, int i, RepMarker m) {
-    // A marker can move up to its neighbours, never across them.
-    final lo = i == 0 ? 0.0 : _markers[i - 1].endSec;
-    final hi = i == _markers.length - 1 ? _duration : _markers[i + 1].startSec;
-    final rep = i < _set.reps.length ? _set.reps[i] : null;
-    // Stance's `RepMarkerRow`: a card, "Rep N" semibold, times in gray.
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-          color: AppColors.cardFill,
-          borderRadius: BorderRadius.circular(16)),
+  /// Stance pans a set longer than the 10 s window with a slider; moving
+  /// it puts the scrubber in the window's middle unless a rep is being
+  /// added.
+  Widget _windowSlider(RepCheckRange range) => SliderTheme(
+        data: SliderTheme.of(context).copyWith(
+          thumbColor: AppColors.primary,
+          activeTrackColor: AppColors.primary.withValues(alpha: 0.6),
+          inactiveTrackColor: Colors.white.withValues(alpha: 0.12),
+        ),
+        child: Slider(
+          key: const Key('windowSlider'),
+          value: _windowStart.clamp(range.dataStart, range.maxWindowStart),
+          min: range.dataStart,
+          max: range.maxWindowStart,
+          onChanged: (v) => setState(() {
+            _windowStart = v;
+            if (!_adding) _scrub = v + repCheckBufferSec;
+          }),
+        ),
+      );
+
+  /// Stance's `AddRepPanel`: the chosen start and end, one button that
+  /// sets the start, then the end, then adds the rep, and Cancel.
+  Widget _addRepPanel(ThemeData theme) {
+    Widget time(String label, double sec, Color color) => Row(children: [
+          Text(label,
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: AppColors.subtitleGray)),
+          const SizedBox(width: 8),
+          Text(fmtRepCheckSec(sec),
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: color, fontWeight: FontWeight.w700)),
+        ]);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        Text('Rep ${i + 1}',
-            style: theme.textTheme.bodyLarge
-                ?.copyWith(fontWeight: FontWeight.w600)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            'R${i + 1}s ${m.startSec.toStringAsFixed(2)} s · '
-            'R${i + 1}e ${m.endSec.toStringAsFixed(2)} s'
-            '${rep == null || _dirty ? '' : ' · ${fmtVelocity(rep.meanVelocity)} m/s'}',
+        if (_addStart != null)
+          Row(children: [
+            time('Start:', _addStart!, repStartColor),
+            if (_addEnd != null) ...[
+              const SizedBox(width: 8),
+              time('End:', _addEnd!, repEndColor),
+            ],
+          ]),
+        const SizedBox(height: 12),
+        AppButton(
+          key: const Key('addRepAction'),
+          text: _addStart == null
+              ? 'Set start time'
+              : _addEnd == null
+                  ? 'Set end time'
+                  : 'Add Rep',
+          onPressed: _saving ? null : _addRepAction,
+        ),
+        const SizedBox(height: 8),
+        AppButton(
+          key: const Key('cancelAddRep'),
+          text: 'Cancel',
+          style: AppButtonStyle.idle,
+          onPressed: () => _setAdding(false),
+        ),
+      ]),
+    );
+  }
+
+  /// Stance's `RepMarkerRow`: a card, "Rep N" semibold, the times in gray,
+  /// and delete.
+  Widget _repRow(ThemeData theme, int i, RepMarker m) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: appCard(),
+        child: Row(children: [
+          Text('Rep ${i + 1}',
+              style: theme.textTheme.bodyLarge
+                  ?.copyWith(fontWeight: FontWeight.w600)),
+          const Spacer(),
+          Text(
+            '${fmtRepCheckSec(m.startSec)} – ${fmtRepCheckSec(m.endSec)}',
+            key: ValueKey('repTimes-$i'),
             style: theme.textTheme.bodyMedium.tabular
                 ?.copyWith(color: AppColors.subtitleGray),
           ),
-        ),
-        IconButton(
-          key: ValueKey('deleteRep-$i'),
-          tooltip: 'Delete rep',
-          icon: const Icon(Icons.delete_outline),
-          onPressed: _saving ? null : () => _delete(i),
-        ),
-      ]),
-      if (hi > lo)
-        RangeSlider(
-          key: ValueKey('repRange-$i'),
-          values: RangeValues(m.startSec.clamp(lo, hi), m.endSec.clamp(lo, hi)),
-          min: lo,
-          max: hi,
-          onChanged: (r) {
-            if (r.end <= r.start) return;
-            setState(() {
-              _markers = [..._markers]..[i] = RepMarker(r.start, r.end);
-              _dirty = true;
-            });
-          },
-        ),
-    ]),
+          IconButton(
+            key: ValueKey('deleteRep-$i'),
+            tooltip: 'Delete rep',
+            icon: const Icon(Icons.delete_outline),
+            onPressed: _saving ? null : () => _delete(i),
+          ),
+        ]),
+      );
+}
+
+/// Stance's `RepCheckVideoPlayer`: the set's video, muted and paused,
+/// 220 dp tall in a 12 dp rounded box, held at the frame under the
+/// scrubber (the sync offset applied), with the scrubber time top-left.
+class RepCheckVideo extends StatefulWidget {
+  const RepCheckVideo({
+    super.key,
+    required this.file,
+    required this.timeline,
+    required this.scrubSec,
+  });
+
+  final File file;
+
+  /// Maps the scrubber's sensor time to video time.
+  final OverlayTimeline timeline;
+  final double scrubSec;
+
+  @override
+  State<RepCheckVideo> createState() => _RepCheckVideoState();
+}
+
+class _RepCheckVideoState extends State<RepCheckVideo> {
+  late final VideoPlayerController _player =
+      VideoPlayerController.file(widget.file);
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _player.initialize().then((_) async {
+      if (!mounted) return;
+      await _player.setVolume(0);
+      await _seek();
+      if (mounted) setState(() => _ready = true);
+    }).catchError((Object _) {
+      // Unplayable: the box stays black, as an empty player.
+    });
+  }
+
+  Future<void> _seek() =>
+      _player.seekTo(widget.timeline.clampedVideoPosition(widget.scrubSec));
+
+  @override
+  void didUpdateWidget(RepCheckVideo old) {
+    super.didUpdateWidget(old);
+    if (_ready &&
+        (old.scrubSec != widget.scrubSec ||
+            old.timeline.offsetSec != widget.timeline.offsetSec)) {
+      _seek();
+    }
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        height: 220,
+        child: Stack(fit: StackFit.expand, children: [
+          const ColoredBox(color: Colors.black),
+          if (_ready)
+            Center(
+              child: AspectRatio(
+                aspectRatio: _player.value.aspectRatio.clamp(0.3, 3.0),
+                child: VideoPlayer(_player),
+              ),
+            ),
+          Positioned(
+            left: 12,
+            top: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(6)),
+              child: Text(fmtRepCheckSec(widget.scrubSec),
+                  key: const Key('repCheckVideoTime'),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 }

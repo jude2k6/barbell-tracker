@@ -3,7 +3,6 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 
 import '../permissions/permission_service.dart';
-import 'app_theme.dart';
 import 'app_widgets.dart';
 
 /// Make sure [capability] is usable, explaining and prompting as needed.
@@ -29,7 +28,7 @@ Future<bool> ensureAccess(
   if (access == Access.askable) {
     final go = await _dialog(
       context,
-      title: 'Allow ${capability.label.toLowerCase()} access',
+      title: 'Allow ${_inSentence(capability)} access',
       body:
           '${capability.label} is needed to ${capability.purpose}. '
           'Your phone will ask you next.',
@@ -57,7 +56,7 @@ Future<bool> ensureAccess(
       context,
       title: '${capability.label} is restricted',
       body:
-          'This device does not allow ${capability.label.toLowerCase()} '
+          'This device does not allow ${_inSentence(capability)} '
           'access for apps (for example through parental controls).',
     );
     return false;
@@ -69,6 +68,13 @@ Future<bool> ensureAccess(
   }
   return true;
 }
+
+/// [capability]'s label mid-sentence: "camera", but "Bluetooth" stays a
+/// proper noun.
+String _inSentence(AppCapability capability) =>
+    capability == AppCapability.bluetooth
+    ? capability.label
+    : capability.label.toLowerCase();
 
 /// Prompt to switch the radio on if it is off. Returns true when on or
 /// unknown (scanning will then report its own error).
@@ -128,7 +134,6 @@ Future<bool> ensureLocationServices(
   if (!service.readiness.locationServicesOff || !context.mounted) return true;
   final result = await showDialog<bool>(
     context: context,
-    barrierColor: AppAlert.scrim,
     builder: (context) =>
         _LocationOffDialog(service: service, continueAnyway: continueAnyway),
   );
@@ -154,16 +159,23 @@ class _LocationOffDialog extends StatelessWidget {
           if (context.mounted) Navigator.of(context).pop(true);
         });
       }
-      return AppAlert(
+      return AlertDialog(
         key: const Key('locationOffDialog'),
-        title: 'Location is off',
-        message:
-            'This Android version requires Location Services to be on '
-            'for Bluetooth scanning. Turn it on to find your sensor.',
-        actionText: 'Turn on Location',
-        onAction: service.openLocationSettings,
-        dismissText: continueAnyway ? 'Continue anyway' : 'Not now',
-        onDismiss: () => Navigator.pop(context, continueAnyway),
+        title: const Text('Location is off'),
+        content: const Text(
+          'This Android version requires Location Services to be on '
+          'for Bluetooth scanning. Turn it on to find your sensor.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, continueAnyway),
+            child: Text(continueAnyway ? 'Continue anyway' : 'Not now'),
+          ),
+          TextButton(
+            onPressed: service.openLocationSettings,
+            child: const Text('Turn on Location'),
+          ),
+        ],
       );
     },
   );
@@ -176,18 +188,28 @@ Future<bool?> _dialog(
   String? action,
 }) => showDialog<bool>(
   context: context,
-  barrierColor: AppAlert.scrim,
-  builder: (context) => AppAlert(
-    title: title,
-    message: body,
-    actionText: action ?? 'OK',
-    onAction: () => Navigator.pop(context, action != null),
-    dismissText: action == null ? null : 'Not now',
-    onDismiss: () => Navigator.pop(context, false),
+  builder: (context) => AlertDialog(
+    title: Text(title),
+    content: Text(body),
+    actions: [
+      if (action != null)
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Not now'),
+        ),
+      TextButton(
+        onPressed: () => Navigator.pop(context, action != null),
+        child: Text(action ?? 'OK'),
+      ),
+    ],
   ),
 );
 
-/// Banner shown on Home and Device when Bluetooth can't be used yet.
+/// Banner shown on Home and Device when Bluetooth can't be used yet, in
+/// the look of Stance's `BlePermissionsCard`: an errorContainer card with
+/// 16 dp padding, a titleMedium title, the bodyMedium message and 42 dp
+/// buttons with 8 dp corners ("Grant permissions" and "Open settings"
+/// while the permission is missing).
 class BluetoothAccessBanner extends StatelessWidget {
   const BluetoothAccessBanner({super.key, required this.service});
 
@@ -198,54 +220,98 @@ class BluetoothAccessBanner extends StatelessWidget {
     listenable: service,
     builder: (context, _) {
       final access = service.access(AppCapability.bluetooth);
-      final (String text, String? button) = switch ((access, service.radio)) {
+      final grant = (
+        'Grant permissions',
+        () => ensureAccess(context, service, AppCapability.bluetooth),
+      );
+      final settings = ('Open settings', service.openSettings);
+      final (
+        String title,
+        String text,
+        List<(String, VoidCallback)> buttons,
+      ) = switch ((access, service.radio)) {
         (Access.granted, RadioState.off) => (
-          'Bluetooth is off.',
-          Platform.isAndroid ? 'Turn on' : null,
+          'Bluetooth is off',
+          'Turn on Bluetooth to connect to your sensor.',
+          [
+            if (Platform.isAndroid)
+              (
+                'Turn on',
+                () => ensureAccess(context, service, AppCapability.bluetooth),
+              ),
+          ],
         ),
         (Access.granted, RadioState.unavailable) => (
+          'Bluetooth unavailable',
           'This device has no Bluetooth LE.',
-          null,
+          const [],
         ),
-        (Access.granted, _) => ('', null),
+        (Access.granted, _) => ('', '', const []),
         (Access.blocked, _) => (
+          'Bluetooth access',
           'Bluetooth access is off for this app.',
-          'Open settings',
+          [grant, settings],
         ),
         (Access.restricted, _) => (
+          'Bluetooth access',
           'Bluetooth is restricted on this device.',
-          null,
+          const [],
         ),
         (Access.askable, _) => (
+          'Bluetooth access',
           'Allow Bluetooth to connect to your sensor.',
-          'Allow',
+          [grant, settings],
         ),
       };
       if (text.isEmpty) return const SizedBox.shrink();
+      final theme = Theme.of(context);
+      // Compose's Card content colour for errorContainer.
+      final onCard = theme.colorScheme.onErrorContainer;
       return Padding(
         padding: const EdgeInsets.only(bottom: 12),
-        child: Card(
+        child: Container(
           key: const Key('bluetoothBanner'),
-          margin: EdgeInsets.zero,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-            child: Row(
-              children: [
-                const Icon(Icons.bluetooth_disabled, color: AppColors.error),
-                const SizedBox(width: 12),
-                Expanded(child: Text(text)),
-                if (button != null)
-                  TextButton(
-                    onPressed: () =>
-                        ensureAccess(context, service, AppCapability.bluetooth),
-                    child: Text(button),
-                  ),
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.errorContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleMedium?.copyWith(color: onCard),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                text,
+                style: theme.textTheme.bodyMedium?.copyWith(color: onCard),
+              ),
+              if (buttons.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Row(
+                  spacing: 8,
+                  children: [
+                    for (final (i, (label, onPressed)) in buttons.indexed)
+                      Expanded(
+                        child: AppButton(
+                          text: label,
+                          radius: 8,
+                          style: i == 0
+                              ? AppButtonStyle.primary
+                              : AppButtonStyle.secondary,
+                          onPressed: onPressed,
+                        ),
+                      ),
+                  ],
+                ),
               ],
-            ),
+            ],
           ),
         ),
       );
     },
   );
 }
-

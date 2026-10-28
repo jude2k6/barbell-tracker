@@ -16,6 +16,9 @@ class FakeSensorLink implements SensorLink {
   int disconnectCalls = 0;
   int calibrations = 0;
 
+  /// Thrown by calibrateFlat() when set.
+  Object? calibrateError;
+
   final _state = StreamController<LinkState>.broadcast(sync: true);
   final _samples = StreamController<SensorSample>.broadcast(sync: true);
   final _battery = StreamController<double?>.broadcast(sync: true);
@@ -51,7 +54,10 @@ class FakeSensorLink implements SensorLink {
   }
 
   @override
-  Future<void> calibrateFlat() async => calibrations++;
+  Future<void> calibrateFlat() async {
+    calibrations++;
+    if (calibrateError != null) throw calibrateError!;
+  }
 
   /// Simulates the radio link dropping.
   void drop() => _state.add(LinkState.disconnected);

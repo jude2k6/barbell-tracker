@@ -245,7 +245,6 @@ class _RpeEditorState extends State<_RpeEditor> {
     final theme = Theme.of(context);
     final profile = widget.profile;
     final speed = profile?.lastRepSpeed;
-    final color = rpeColor(_rpe) ?? AppColors.primary;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       // Stance: "RPE" in headlineLarge with a small Save button.
       Row(children: [
@@ -294,54 +293,82 @@ class _RpeEditorState extends State<_RpeEditor> {
             ),
           ),
         ),
-      // Stance's `RpeSliderCard`: the prompt (or the value) over a white
-      // slider with a Primary track, Clear at the end.
-      Container(
-        margin: const EdgeInsets.only(top: 16),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-        decoration: appCard(),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Stack(alignment: Alignment.center, children: [
-            Text(fmtRpe(_rpe),
-                key: const Key('rpeValue'),
-                textAlign: TextAlign.center,
-                style: theme.textTheme.headlineSmall?.copyWith(color: color).tabular),
-            if (widget.set.rpe != null)
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton(
-                  key: const Key('rpeClear'),
-                  style: appSmallButtonStyle(context, secondary: true),
-                  onPressed: () => Navigator.of(context).pop(const RpeChoice(null)),
-                  child: const Text('Clear'),
-                ),
-              ),
-          ]),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              thumbColor: Colors.white,
-              activeTrackColor: AppColors.primary,
-              inactiveTrackColor: const Color(0x26FFFFFF),
-              activeTickMarkColor: const Color(0x59FFFFFF),
-              inactiveTickMarkColor: const Color(0x59FFFFFF),
-              trackHeight: 4,
-            ),
-            child: Slider(
-              key: const Key('rpeSlider'),
-              value: _rpe,
-              min: 5,
-              max: 10,
-              divisions: 10,
-              label: fmtRpe(_rpe),
-              onChanged: (v) {
-                HapticFeedback.selectionClick();
-                setState(() => _rpe = v);
-              },
-            ),
-          ),
-        ]),
+      Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: RpeSliderCard(
+          value: _rpe,
+          onChanged: (v) => setState(() => _rpe = v),
+          onClear: widget.set.rpe == null
+              ? null
+              : () => Navigator.of(context).pop(const RpeChoice(null)),
+        ),
       ),
     ]);
+  }
+}
+
+/// Stance's `RpeSliderCard`: the value in its RPE colour over a white
+/// slider with a Primary track (5–10 in half steps), Clear at the end
+/// when [onClear] is set.
+class RpeSliderCard extends StatelessWidget {
+  const RpeSliderCard(
+      {super.key, required this.value, required this.onChanged, this.onClear});
+
+  final double value;
+  final ValueChanged<double> onChanged;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = rpeColor(value) ?? AppColors.primary;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      decoration: appCard(),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Stack(alignment: Alignment.center, children: [
+          Text(fmtRpe(value),
+              key: const Key('rpeValue'),
+              textAlign: TextAlign.center,
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineSmall
+                  ?.copyWith(color: color)
+                  .tabular),
+          if (onClear != null)
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton(
+                key: const Key('rpeClear'),
+                style: appSmallButtonStyle(context, secondary: true),
+                onPressed: onClear,
+                child: const Text('Clear'),
+              ),
+            ),
+        ]),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            thumbColor: Colors.white,
+            activeTrackColor: AppColors.primary,
+            inactiveTrackColor: const Color(0x26FFFFFF),
+            activeTickMarkColor: const Color(0x59FFFFFF),
+            inactiveTickMarkColor: const Color(0x59FFFFFF),
+            trackHeight: 4,
+          ),
+          child: Slider(
+            key: const Key('rpeSlider'),
+            value: value,
+            min: 5,
+            max: 10,
+            divisions: 10,
+            label: fmtRpe(value),
+            onChanged: (v) {
+              HapticFeedback.selectionClick();
+              onChanged(v);
+            },
+          ),
+        ),
+      ]),
+    );
   }
 }
 

@@ -105,6 +105,70 @@ void main() {
     });
   });
 
+  group('moveMarker (RepCheckSheet drag)', () {
+    const ms = [RepMarker(1.0, 2.0), RepMarker(3.0, 4.0)];
+
+    test('a start stays after the previous end and 0.1 s before its end', () {
+      expect(moveMarker(ms, 1, isStart: true, t: 2.5, durationSec: 4.9)[1],
+          const RepMarker(2.5, 4.0));
+      expect(moveMarker(ms, 1, isStart: true, t: 0.5, durationSec: 4.9)[1],
+          const RepMarker(2.0, 4.0));
+      expect(moveMarker(ms, 1, isStart: true, t: 4.5, durationSec: 4.9)[1].startSec,
+          closeTo(3.9, 1e-9));
+      expect(moveMarker(ms, 0, isStart: true, t: -1, durationSec: 4.9)[0],
+          const RepMarker(0.0, 2.0));
+    });
+
+    test('an end stays 0.1 s after its start and before the next start', () {
+      expect(moveMarker(ms, 0, isStart: false, t: 5, durationSec: 4.9)[0],
+          const RepMarker(1.0, 3.0));
+      expect(moveMarker(ms, 0, isStart: false, t: 0, durationSec: 4.9)[0].endSec,
+          closeTo(1.1, 1e-9));
+      expect(moveMarker(ms, 1, isStart: false, t: 9, durationSec: 4.9)[1],
+          const RepMarker(3.0, 4.9));
+      // The other marker and the input are untouched.
+      final moved = moveMarker(ms, 1, isStart: false, t: 4.5, durationSec: 4.9);
+      expect(moved[0], ms[0]);
+      expect(ms[1], const RepMarker(3.0, 4.0));
+    });
+  });
+
+  group('RepCheckRange (RepCheckSheet window and scrub)', () {
+    test('short sets show the reps ± 5 s, clamped to the trace', () {
+      final r = RepCheckRange(const [RepMarker(1, 2), RepMarker(3, 4)], 4.9);
+      expect(r.scrolls, isFalse);
+      expect(r.visible(123), (0.0, 4.9));
+      expect(r.scrub(9, 0), (scrub: 4.9, windowStart: 0.0));
+    });
+
+    test('long sets show 10 s centred on the reps and pan at the edges', () {
+      // Reps 6–30 s of a 40 s trace: data 1–35 s.
+      final ms = [const RepMarker(6, 8), const RepMarker(28, 30)];
+      final r = RepCheckRange(ms, 40);
+      expect((r.dataStart, r.dataEnd), (1.0, 35.0));
+      expect(r.scrolls, isTrue);
+      expect(r.maxWindowStart, 25.0);
+      expect(r.initialWindowStart(ms), 13.0); // mid 18 − 5
+      expect(r.visible(13), (13.0, 23.0));
+      // Inside, away from the edges: no pan.
+      expect(r.scrub(18, 13), (scrub: 18.0, windowStart: 13.0));
+      // 0.5 s from the right edge: pans right by 1 s; past it, clamped.
+      expect(r.scrub(22.5, 13), (scrub: 22.5, windowStart: 14.0));
+      expect(r.scrub(99, 13), (scrub: 23.0, windowStart: 14.5));
+      // Left edge.
+      expect(r.scrub(13.5, 13), (scrub: 13.5, windowStart: 12.0));
+      // Never past the data.
+      expect(r.scrub(34.9, 25).windowStart, 25.0);
+      expect(r.scrub(1.2, 1).windowStart, 1.0);
+    });
+
+    test('no reps: the whole trace', () {
+      final r = RepCheckRange(const [], 4.9);
+      expect((r.dataStart, r.dataEnd), (0.0, 4.9));
+      expect(r.initialWindowStart(const []), 0.0);
+    });
+  });
+
   group('applyRepMarkers (EditRepMarkersUseCase)', () {
     final reps = [_rep(1, 1.0, 2.0, rom: 0.5), _rep(2, 3.0, 4.0, rom: 0.6)];
 

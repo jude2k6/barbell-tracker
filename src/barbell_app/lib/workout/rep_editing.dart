@@ -93,6 +93,90 @@ double traceDurationSec(SetRecord set) => set.velocityTrace.isEmpty
     ? 0
     : (set.velocityTrace.length - 1) / set.traceHz!;
 
+/// Stance's `RepCheckSheet` constants: a marker is at least
+/// [minRepDurationSec] long; the chart shows the reps plus [repCheckBufferSec]
+/// either side, at most [repCheckWindowSec] at a time, and pans when the
+/// scrubber comes within [repCheckEdgeSec] of a window edge.
+const minRepDurationSec = 0.1;
+const repCheckBufferSec = 5.0;
+const repCheckWindowSec = 10.0;
+const repCheckEdgeSec = 1.5;
+
+/// Moves marker [i]'s start ([isStart]) or end to [t]: a start stays
+/// between the previous rep's end (or 0) and its own end − 0.1 s; an end
+/// between its own start + 0.1 s and the next rep's start (or [durationSec]).
+/// Unchanged when the neighbours leave no room.
+List<RepMarker> moveMarker(List<RepMarker> markers, int i,
+    {required bool isStart, required double t, required double durationSec}) {
+  final m = markers[i];
+  final (lo, hi) = isStart
+      ? (i > 0 ? markers[i - 1].endSec : 0.0, m.endSec - minRepDurationSec)
+      : (
+          m.startSec + minRepDurationSec,
+          i < markers.length - 1 ? markers[i + 1].startSec : durationSec,
+        );
+  if (hi < lo) return markers;
+  final v = t.clamp(lo, hi).toDouble();
+  return [...markers]
+    ..[i] = isStart ? RepMarker(v, m.endSec) : RepMarker(m.startSec, v);
+}
+
+/// The part of the trace Rep Check shows (Stance's `RepCheckSheet`): the
+/// reps plus 5 s either side, clamped to the trace. Longer than 10 s, it
+/// shows a 10 s window starting at a movable `windowStart`.
+class RepCheckRange {
+  RepCheckRange(List<RepMarker> markers, double durationSec)
+      : dataStart = markers.isEmpty
+            ? 0
+            : math.max(markers.first.startSec - repCheckBufferSec, 0),
+        dataEnd = math.min(
+            (markers.isEmpty ? durationSec : markers.last.endSec) +
+                repCheckBufferSec,
+            durationSec);
+
+  final double dataStart, dataEnd;
+
+  bool get scrolls => dataEnd - dataStart > repCheckWindowSec;
+
+  /// The latest window start.
+  double get maxWindowStart =>
+      math.max(dataEnd - repCheckWindowSec, dataStart);
+
+  /// Where the window starts on opening: centred on the middle of
+  /// [original]'s reps.
+  double initialWindowStart(List<RepMarker> original) {
+    final mid = original.isEmpty
+        ? dataStart
+        : (original.first.startSec + original.last.endSec) / 2;
+    return (mid - repCheckBufferSec).clamp(dataStart, maxWindowStart).toDouble();
+  }
+
+  /// The visible (start, end) for [windowStart].
+  (double, double) visible(double windowStart) => scrolls
+      ? (windowStart, windowStart + repCheckWindowSec)
+      : (dataStart, dataEnd);
+
+  /// Stance's `applyScrub`: the scrubber moves to [t] within the visible
+  /// window; within 1.5 s of an edge with more trace beyond, the window
+  /// pans by the shortfall.
+  ({double scrub, double windowStart}) scrub(double t, double windowStart) {
+    final (lo, hi) = visible(windowStart);
+    final s = t.clamp(lo, hi).toDouble();
+    if (!scrolls) return (scrub: s, windowStart: windowStart);
+    var ws = windowStart;
+    if (hi - s < repCheckEdgeSec && hi < dataEnd) {
+      ws = (ws + repCheckEdgeSec - (hi - s))
+          .clamp(dataStart, maxWindowStart)
+          .toDouble();
+    } else if (s - lo < repCheckEdgeSec && lo > dataStart) {
+      ws = (ws - (repCheckEdgeSec - (s - lo)))
+          .clamp(dataStart, maxWindowStart)
+          .toDouble();
+    }
+    return (scrub: s, windowStart: ws);
+  }
+}
+
 enum AddTimeError { startInside, endInside, encompass, overlap, endBeforeStart }
 
 /// Stance's `validateAddTime` for a new rep's start ([isStart]) or end

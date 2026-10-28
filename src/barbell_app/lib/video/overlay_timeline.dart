@@ -79,9 +79,12 @@ class OverlayTimeline {
     return v[i] * (1 - f) + v[i + 1] * f;
   }
 
-  /// Where to jump to watch [rep]: one second before its concentric phase.
-  Duration seekTarget(RepRecord rep) {
-    final d = videoPosition(rep.startSec - 1);
+  /// [videoPosition], but never before the start of the video.
+  Duration clampedVideoPosition(double sensorSec) {
+    final d = videoPosition(sensorSec);
     return d.isNegative ? Duration.zero : d;
   }
+
+  /// Where to jump to watch [rep]: one second before its concentric phase.
+  Duration seekTarget(RepRecord rep) => clampedVideoPosition(rep.startSec - 1);
 }

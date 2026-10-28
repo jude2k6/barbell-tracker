@@ -29,68 +29,51 @@ enum VideoQuality {
 @immutable
 class VideoSettings {
   const VideoSettings({
-    this.enabled = false,
     this.lens = VideoLens.back,
     this.quality = VideoQuality.fhd,
     this.fps = 30,
-    this.audio = false,
   });
 
   factory VideoSettings.fromJson(Map<String, dynamic> j) => VideoSettings(
-        enabled: j['enabled'] as bool? ?? false,
         lens: VideoLens.values.firstWhere((l) => l.name == j['lens'],
             orElse: () => VideoLens.back),
         quality: VideoQuality.values.firstWhere((q) => q.name == j['quality'],
             orElse: () => VideoQuality.fhd),
         fps: j['fps'] as int? ?? 30,
-        audio: j['audio'] as bool? ?? false,
       );
 
-  /// Record video alongside the sensor on the set screen.
-  final bool enabled;
   final VideoLens lens;
   final VideoQuality quality;
 
   /// 30 or 60. Not every device supports 60 at every resolution.
   final int fps;
 
-  /// Record sound (needs microphone permission).
-  final bool audio;
-
   VideoSettings copyWith({
-    bool? enabled,
     VideoLens? lens,
     VideoQuality? quality,
     int? fps,
-    bool? audio,
   }) =>
       VideoSettings(
-        enabled: enabled ?? this.enabled,
         lens: lens ?? this.lens,
         quality: quality ?? this.quality,
         fps: fps ?? this.fps,
-        audio: audio ?? this.audio,
       );
 
   Map<String, dynamic> toJson() => {
-        'enabled': enabled,
         'lens': lens.name,
         'quality': quality.name,
         'fps': fps,
-        'audio': audio,
       };
 
   @override
   bool operator ==(Object other) =>
       other is VideoSettings &&
-      other.enabled == enabled &&
       other.lens == lens &&
       other.quality == quality &&
-      other.fps == fps &&
-      other.audio == audio;
+      other.fps == fps;
 
   @override
-  int get hashCode => Object.hash(enabled, lens, quality, fps, audio);
+  int get hashCode => Object.hash(lens, quality, fps);
 }
 
 /// Persists [VideoSettings] in `<base>/video_settings.json`.

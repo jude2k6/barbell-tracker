@@ -54,7 +54,7 @@ class SetVideoRecorder extends ChangeNotifier {
       final c = CameraController(
         cam,
         settings.quality.preset,
-        enableAudio: settings.audio,
+        enableAudio: false, // silent, as Stance's CameraX recorder
         fps: settings.fps,
       );
       await c.initialize();

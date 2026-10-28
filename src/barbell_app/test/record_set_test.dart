@@ -8,6 +8,7 @@ import 'package:barbell_app/sensor/sensor_sample.dart';
 import 'package:barbell_app/ui/app_scope.dart';
 import 'package:barbell_app/ui/guides.dart';
 import 'package:barbell_app/ui/record_set_page.dart';
+import 'package:barbell_app/video/video_settings.dart';
 import 'package:barbell_app/workout/preferences.dart';
 import 'package:barbell_app/workout/sensor_controller.dart';
 import 'package:barbell_app/workout/session.dart';
@@ -39,7 +40,8 @@ void main() {
   });
 
   /// A host page with a button that opens the record page for [exercise].
-  Future<void> host(WidgetTester tester, {String exercise = 'squat_low_bar'}) async {
+  Future<void> host(WidgetTester tester,
+      {String exercise = 'squat_low_bar', VideoSettingsStore? video}) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 1.5;
     addTearDown(tester.view.reset);
@@ -49,6 +51,7 @@ void main() {
       sessions: store,
       recordings: RecordingStore(baseDirectory: () async => dir),
       preferences: prefs,
+      videoSettings: video,
       analyzer: (List<SensorSample> samples, Exercise e) => analysis.future,
       child: MaterialApp(
         home: Builder(
@@ -160,5 +163,70 @@ void main() {
     expect(sessions.single.sets.single.reps.single.meanVelocity, 0.5);
     expect(sessions.single.sets.single.weight, 100);
     expect(sessions.single.sets.single.imuQuality?.imuDataLossPct, 0);
+  }, timeout: const Timeout(Duration(seconds: 60)));
+
+  testWidgets('Start Set + Video opens the capture screen; its button runs the set',
+      (tester) async {
+    await tester.runAsync(() => prefs.markSeen(Guide.preRecordingGuide));
+    final video = VideoSettingsStore(baseDirectory: () async => dir);
+    await host(tester, video: video);
+
+    await tester.tap(find.byKey(const Key('startSetVideo')));
+    await tester.pump();
+    expect(find.byKey(const Key('videoCapture')), findsOneWidget);
+    expect(find.text('30 FPS'), findsOneWidget);
+    expect(find.text('1080p'), findsOneWidget);
+    expect(find.text('Back'), findsOneWidget);
+
+    // A pill opens its menu and changes the setting.
+    await tester.tap(find.byKey(const Key('fpsPill')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('60 FPS').last);
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+    await tester.pumpAndSettle();
+    expect(video.value.fps, 60);
+    expect(find.text('60 FPS'), findsOneWidget);
+
+    // Close returns to the normal screen.
+    await tester.tap(find.byKey(const Key('closeCamera')));
+    await tester.pump();
+    expect(find.byKey(const Key('videoCapture')), findsNothing);
+
+    // The record button starts and stops the set; the camera then closes.
+    await tester.tap(find.byKey(const Key('startSetVideo')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('captureRecord')));
+    await tester.pump();
+    expect(find.byKey(const Key('closeCamera')), findsNothing);
+    for (var i = 0; i < 20; i++) {
+      link.emit(i);
+    }
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.tap(find.byKey(const Key('captureRecord')));
+    for (var i = 0; i < 10; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump();
+    }
+    expect(find.byKey(const Key('videoCapture')), findsNothing);
+    expect(find.byKey(const Key('analysisCountdown')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('workoutBack')));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    analysis.complete(const SetAnalysis(
+      reps: [],
+      velocity: [],
+      velocityHz: 50,
+      measuredHz: 200,
+      pipeline: PipelineKind.squatBenchNative,
+    ));
+    List<Session> sessions = const [];
+    for (var i = 0; i < 50 && sessions.isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump();
+      sessions = (await tester.runAsync(store.list))!;
+    }
+    expect(sessions.single.sets.single.videoFile, isNull); // no camera in tests
   }, timeout: const Timeout(Duration(seconds: 60)));
 }

@@ -10,7 +10,7 @@ import 'app_scope.dart';
 import 'app_theme.dart';
 import 'app_widgets.dart';
 import 'auto_reconnect.dart';
-import 'calibration_dialog.dart';
+import 'calibration_page.dart';
 import 'format.dart';
 import 'live_trace.dart';
 import 'permission_prompts.dart';
@@ -245,9 +245,21 @@ class _ConnectedViewState extends State<_ConnectedView> {
       ),
     );
 
+    // DeviceSectionHeader: titleSmall SubtitleGray, 8 dp above and below.
+    Widget section(String title) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Text(
+        title,
+        style: theme.textTheme.titleSmall?.copyWith(
+          color: AppColors.subtitleGray,
+        ),
+      ),
+    );
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       children: [
+        section('Sensors'),
         // StanceTrackerDeviceRow, connected: dot, name, battery.
         DevicePanel(
           minHeight: 52,
@@ -331,24 +343,16 @@ class _ConnectedViewState extends State<_ConnectedView> {
             ],
           ),
         ),
-        // DeviceSectionHeader.
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Text(
-            'Vertical acceleration (g, gravity removed)',
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: AppColors.subtitleGray,
-            ),
-          ),
-        ),
-        DevicePanel(child: LiveTrace(sensor: sensor, height: 180)),
+        // Vertical acceleration in g, gravity removed. LiveTrace draws its
+        // own card.
+        section('Vertical acceleration (g)'),
+        LiveTrace(sensor: sensor, height: 180),
         const SizedBox(height: 16),
         AppButton(
           text: 'Calibrate (lay flat)',
           height: 48,
-          onPressed: streaming
-              ? () => CalibrationDialog.show(context, sensor.calibrateFlat)
-              : null,
+          // Own shortcut; Stance reaches Calibration only from the Debug Menu.
+          onPressed: () => openCalibration(context),
         ),
         const _ForgetSavedTile(),
       ],

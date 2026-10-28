@@ -145,9 +145,9 @@ class _SessionTagEditorState extends State<SessionTagEditor> {
       );
 }
 
-/// Stance's `SessionTagsRow` on a Sessions card: a tag icon, the tag count
-/// and the shortened tags as pills, scrolling sideways. Nothing without
-/// tags.
+/// Stance's `SessionTagsRow` on a Sessions card: a 15dp tag icon, a 20dp
+/// circle with the tag count and the shortened tags as pills, scrolling
+/// sideways. Nothing without tags.
 class SessionTagsRow extends StatelessWidget {
   const SessionTagsRow({super.key, required this.tags});
 
@@ -157,36 +157,57 @@ class SessionTagsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final shown = displayTags(tags);
     if (shown.isEmpty) return const SizedBox.shrink();
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(children: [
-        Icon(Icons.local_offer, size: 15, color: theme.colorScheme.outline),
-        const SizedBox(width: 8),
-        CircleAvatar(
-          radius: 10,
-          backgroundColor: theme.colorScheme.outline,
+    final small = Theme.of(context).textTheme.labelSmall;
+    return Row(
+      mainAxisSize: MainAxisSize.max,
+      spacing: 8,
+      children: [
+        const Icon(Icons.local_offer, size: 15, color: AppColors.gray),
+        Container(
+          width: 20,
+          height: 20,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+              color: AppColors.gray, shape: BoxShape.circle),
           child: Text('${shown.length}',
-              style: theme.textTheme.labelSmall
-                  ?.copyWith(color: theme.colorScheme.surface)),
+              style: small?.copyWith(
+                  color: Colors.white, fontWeight: FontWeight.w700)),
         ),
-        const SizedBox(width: 8),
         Expanded(
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            child: Row(children: [
-              for (final t in shown)
-                Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: Chip(
-                    label: Text(t),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-            ]),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 10,
+              children: [for (final t in shown) _SessionTagPill(t)],
+            ),
           ),
         ),
-      ]),
+      ],
     );
   }
+}
+
+/// Stance's `SessionTagPill`: 8dp corners, white at 8% fill, white at 85%
+/// labelSmall text, 8dp x 2dp padding.
+class _SessionTagPill extends StatelessWidget {
+  const _SessionTagPill(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          child: Text(text,
+              style: Theme.of(context)
+                  .textTheme
+                  .labelSmall
+                  ?.copyWith(color: Colors.white.withValues(alpha: 0.85))),
+        ),
+      );
 }

@@ -28,17 +28,25 @@ Color? rpeColor(double rpe) {
 /// speed window; zoomed out, RPE 5–10 and all speeds. Port of Stance's
 /// `RpeIntensityProfileChart`.
 class RpeProfileChart extends StatefulWidget {
-  const RpeProfileChart({super.key, required this.profile, this.height = 220});
+  const RpeProfileChart({
+    super.key,
+    required this.profile,
+    this.height = 220,
+    this.initiallyZoomedOut = false,
+  });
 
   final RpeIntensityProfile profile;
   final double height;
+
+  /// Start on RPE 5–10 (e.g. with no rated set to centre on).
+  final bool initiallyZoomedOut;
 
   @override
   State<RpeProfileChart> createState() => _RpeProfileChartState();
 }
 
 class _RpeProfileChartState extends State<RpeProfileChart> {
-  bool _zoomedOut = false;
+  late bool _zoomedOut = widget.initiallyZoomedOut;
 
   @override
   Widget build(BuildContext context) {
@@ -57,18 +65,30 @@ class _RpeProfileChartState extends State<RpeProfileChart> {
     return Stack(children: [
       Semantics(
         label: 'Speed-intensity profile, ${p.points.length} RPE values',
-        child: SizedBox(
-          height: widget.height,
-          child: CustomPaint(
-            painter: RpeProfilePainter(
-              profile: p,
-              zoomedOut: _zoomedOut,
-              lineColor: AppColors.primary,
-              gridColor: const Color(0x26FFFFFF),
-              labelStyle: chartAxisLabel,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Stance: the unit above the plot (labelSmall, 10/8 dp inset).
+            Padding(
+              padding: const EdgeInsets.only(left: 10, top: 8),
+              child: Text('m/s',
+                  style: theme.textTheme.labelSmall
+                      ?.copyWith(color: AppColors.subtitleGray)),
             ),
-            child: const SizedBox.expand(),
-          ),
+            SizedBox(
+              height: widget.height,
+              child: CustomPaint(
+                painter: RpeProfilePainter(
+                  profile: p,
+                  zoomedOut: _zoomedOut,
+                  lineColor: AppColors.primary,
+                  gridColor: const Color(0x26FFFFFF),
+                  labelStyle: chartAxisLabel,
+                ),
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ],
         ),
       ),
       Positioned(
@@ -140,7 +160,6 @@ class RpeProfilePainter extends CustomPainter {
       if (r < 5 || r > 10) continue;
       _text(canvas, fmtRpe(r), Offset(x(r), plot.bottom + 6));
     }
-    _text(canvas, 'm/s', const Offset(0, 0), topLeft: true);
     _text(canvas, 'RPE', Offset(plot.center.dx, size.height - 12));
 
     canvas.save();

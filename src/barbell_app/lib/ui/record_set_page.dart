@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -28,16 +27,16 @@ import 'format.dart';
 import 'guides.dart';
 import 'live_trace.dart';
 import 'permission_prompts.dart';
-import 'video_settings_sheet.dart';
+import 'video_capture_mode.dart';
 import 'workout_flow.dart';
 
 enum _Phase { idle, recording, analysing }
 
 /// Stance's `PreRecordingRoute`: exercise, set type pill and weight, a tip,
-/// then a full-width Start Set / Stop button with the seconds above it
-/// while recording (plus our video card and live trace). After Stop the
-/// set is analysed under
-/// a 60 s countdown, saved to the session, and the session feedback page
+/// then full-width Start Set + Video and Start Set / Stop buttons, with the
+/// seconds above them while recording (plus our live trace). "Start Set +
+/// Video" opens the full-screen [VideoCaptureMode]. After Stop the set is
+/// analysed under a 60 s countdown, saved to the session, and the session feedback page
 /// opens; there is no separate per-set result page. The lifter may leave
 /// while it analyses: the set is still saved. A setup guide shows on the
 /// first visit and from the top bar.
@@ -82,23 +81,26 @@ class _RecordSetPageState extends State<RecordSetPage> {
   bool get _cameraAllowed =>
       _app.permissions?.granted(AppCapability.camera) ?? true;
 
-  /// Turning video on asks for the camera (and microphone if sound is on)
-  /// first; without the microphone, video is recorded silently.
-  Future<void> _setVideoEnabled(bool on) async {
-    final store = _app.videoSettings!;
+  /// Stance's `videoArmed`: the full-screen [VideoCaptureMode] is up and
+  /// the next set records video. Cleared when that set stops or on close.
+  bool _videoArmed = false;
+
+  /// Stance's "Start Set + Video": asks for the camera, then opens the
+  /// capture screen. Video is silent, as Stance's.
+  Future<void> _armVideo() async {
     final p = _app.permissions;
-    if (!on) return store.update(_videoSettings.copyWith(enabled: false));
     if (p != null && !await ensureAccess(context, p, AppCapability.camera)) return;
-    var settings = _videoSettings.copyWith(enabled: true);
-    if (settings.audio && p != null && mounted &&
-        !await ensureAccess(context, p, AppCapability.microphone)) {
-      settings = settings.copyWith(audio: false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('No microphone access: recording video without sound.')));
-      }
-    }
-    await store.update(settings);
+    if (!mounted) return;
+    AppLog.i('SetVideo', 'event=video_armed');
+    setState(() => _videoArmed = true);
+    _video.open(_videoSettings);
+  }
+
+  void _cancelVideo() {
+    if (_video.isRecording) return;
+    AppLog.i('SetVideo', 'event=video_cancelled');
+    setState(() => _videoArmed = false);
+    _video.close();
   }
 
   @override
@@ -116,7 +118,6 @@ class _RecordSetPageState extends State<RecordSetPage> {
       _app.sensor.addListener(_onSensorChanged);
       _app.videoSettings?.addListener(_onVideoSettingsChanged);
       _app.permissions?.addListener(_onVideoSettingsChanged);
-      _onVideoSettingsChanged();
     });
   }
 
@@ -134,21 +135,11 @@ class _RecordSetPageState extends State<RecordSetPage> {
   static const _analysisCountdown = Duration(seconds: 60);
   final _analysisClock = Stopwatch();
 
+  /// A pill changed the settings, or camera access changed in Settings.
   void _onVideoSettingsChanged() {
-    if (!mounted || _phase != _Phase.idle) return;
-    var settings = _videoSettings;
-    // Microphone revoked since sound was turned on: record silently.
-    if (settings.audio &&
-        !(_app.permissions?.granted(AppCapability.microphone) ?? true)) {
-      settings = settings.copyWith(audio: false);
-    }
-    if (settings.enabled && !_cameraAllowed) {
-      _video.close(); // revoked in Settings: wait for access again
-    } else if (settings.enabled) {
-      _video.open(settings);
-    } else {
-      _video.close();
-    }
+    if (!mounted || !_videoArmed || _phase != _Phase.idle) return;
+    if (!_cameraAllowed) return _cancelVideo();
+    _video.open(_videoSettings);
     setState(() {});
   }
 
@@ -175,7 +166,8 @@ class _RecordSetPageState extends State<RecordSetPage> {
   Future<void> _start() async {
     _pendingSetId = newId();
     // Camera first: its start latency is longer and timestamped anyway.
-    if (_videoSettings.enabled && _video.isReady) {
+    if (_videoArmed && _video.isReady) {
+      AppLog.i('SetVideo', 'event=video_record_start');
       try {
         await _video.start();
       } catch (e) {
@@ -218,6 +210,11 @@ class _RecordSetPageState extends State<RecordSetPage> {
     final endedAt = DateTime.now();
     final setId = _pendingSetId ?? newId();
     final clip = _video.isRecording ? await _video.stop(setId) : null;
+    // Stance's finishVideo: the capture screen closes once the clip is in.
+    if (_videoArmed) {
+      _videoArmed = false;
+      unawaited(_video.close());
+    }
 
     AppLog.i('RecordingRepository',
         'recording stopped set=$setId samples=${recording.samples.length}');
@@ -324,229 +321,168 @@ class _RecordSetPageState extends State<RecordSetPage> {
     final gray = AppColors.subtitleGray;
 
     return PopScope(
-      canPop: _phase != _Phase.recording,
+      canPop: _phase != _Phase.recording && !_videoArmed,
+      // Stance's capture-mode BackHandler: back closes the camera while idle.
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _videoArmed && _phase == _Phase.idle) _cancelVideo();
+      },
       child: Scaffold(
-        body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: ListenableBuilder(
-              listenable: sensor,
-              builder: (context, _) => CustomScrollView(slivers: [
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      WorkoutTopBar(
-                        sensor: sensor,
-                        deviceEnabled: idle,
-                        actions: [
-                          GuideHeaderButton(
-                            key: const Key('setupGuide'),
-                            label: 'Setup Guide',
-                            onPressed: idle ? _showSetupGuide : null,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(widget.exercise.rawValue,
-                              style: theme.textTheme.bodyLarge?.copyWith(color: gray)),
-                          Container(
-                            margin: const EdgeInsets.only(top: 8),
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0x14FFFFFF),
-                              borderRadius: BorderRadius.circular(20),
+        body: Stack(children: [
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: ListenableBuilder(
+                listenable: sensor,
+                builder: (context, _) => CustomScrollView(slivers: [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        WorkoutTopBar(
+                          sensor: sensor,
+                          deviceEnabled: idle,
+                          actions: [
+                            GuideHeaderButton(
+                              key: const Key('setupGuide'),
+                              label: 'Setup Guide',
+                              onPressed: idle ? _showSetupGuide : null,
                             ),
-                            child: Text(widget.setType.displayName,
-                                style: theme.textTheme.labelMedium
-                                    ?.copyWith(color: gray)),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(fmtWeight(widget.weight, widget.unit),
-                              key: const Key('setSummary'),
-                              style: theme.textTheme.displaySmall.tabular),
-                        ],
-                      ),
-                      if (_app.videoSettings != null) ...[
-                        const SizedBox(height: 16),
-                        _VideoCard(
-                          recorder: _video,
-                          settings: _videoSettings,
-                          enabled: idle,
-                          cameraBlocked: _videoSettings.enabled && !_cameraAllowed,
-                          onToggle: _setVideoEnabled,
-                          onFixAccess: () => _setVideoEnabled(true),
-                          onSettings: () => showVideoSettingsSheet(
-                              context, _app.videoSettings!, _app.permissions),
+                          ],
                         ),
-                      ],
-                      const Spacer(),
-                      Padding(
-                        key: const Key('recordingTip'),
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        child: Column(children: [
-                          Text('Tips', style: theme.textTheme.titleMedium),
-                          const SizedBox(height: 8),
-                          Text(_tip,
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.bodyMedium?.copyWith(color: gray)),
-                        ]),
-                      ),
-                      const Spacer(),
-                      if (_phase == _Phase.analysing) ...[
-                        _AnalysisCountdown(
-                            elapsed: _analysisClock.elapsed, total: _analysisCountdown),
-                        const SizedBox(height: 12),
-                      ] else if (_phase == _Phase.recording) ...[
-                        // Own addition: the live trace above Stance's
-                        // progress bar and seconds.
-                        LiveTrace(sensor: sensor, height: 120, color: AppColors.error),
-                        const SizedBox(height: 8),
-                        const LinearProgressIndicator(),
-                        const SizedBox(height: 8),
-                        Row(children: [
-                          Text('${_stopwatch.elapsed.inSeconds}s',
-                              style: theme.textTheme.bodyMedium.tabular),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text('${_recording?.samples.length ?? 0} samples',
-                                style: theme.textTheme.bodySmall.tabular
-                                    ?.copyWith(color: gray)),
-                          ),
-                          // Stance's RecordingControlsRow badge.
-                          if (assessRecentSignal(_recording?.samples ?? const [])
-                              case final quality?)
-                            SignalQualityBadge(quality: quality),
-                        ]),
-                        const SizedBox(height: 12),
-                      ],
-                      if (!sensor.isStreaming && idle) ...[
-                        Text('Sensor not streaming. Connect your sensor to record.',
-                            style: theme.textTheme.bodyMedium),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 20),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(widget.exercise.rawValue,
+                                style: theme.textTheme.bodyLarge?.copyWith(color: gray)),
+                            Container(
+                              margin: const EdgeInsets.only(top: 8),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0x14FFFFFF),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(widget.setType.displayName,
+                                  style: theme.textTheme.labelMedium
+                                      ?.copyWith(color: gray)),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(fmtWeight(widget.weight, widget.unit),
+                                key: const Key('setSummary'),
+                                style: theme.textTheme.displaySmall.tabular),
+                          ],
+                        ),
+                        const Spacer(),
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
+                          key: const Key('recordingTip'),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          child: Column(children: [
+                            Text('Tips', style: theme.textTheme.titleMedium),
+                            const SizedBox(height: 8),
+                            Text(_tip,
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.bodyMedium?.copyWith(color: gray)),
+                          ]),
+                        ),
+                        const Spacer(),
+                        if (_phase == _Phase.analysing) ...[
+                          _AnalysisCountdown(
+                              elapsed: _analysisClock.elapsed, total: _analysisCountdown),
+                          const SizedBox(height: 12),
+                        ] else if (_phase == _Phase.recording) ...[
+                          // Own addition: the live trace above Stance's
+                          // progress bar and seconds.
+                          LiveTrace(sensor: sensor, height: 120, color: AppColors.error),
+                          const SizedBox(height: 8),
+                          const LinearProgressIndicator(),
+                          const SizedBox(height: 8),
+                          Row(children: [
+                            Text('${_stopwatch.elapsed.inSeconds}s',
+                                style: theme.textTheme.bodyMedium.tabular),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text('${_recording?.samples.length ?? 0} samples',
+                                  style: theme.textTheme.bodySmall.tabular
+                                      ?.copyWith(color: gray)),
+                            ),
+                            // Stance's RecordingControlsRow badge.
+                            if (assessRecentSignal(_recording?.samples ?? const [])
+                                case final quality?)
+                              SignalQualityBadge(quality: quality),
+                          ]),
+                          const SizedBox(height: 12),
+                        ],
+                        if (!sensor.isStreaming && idle) ...[
+                          Text('Sensor not streaming. Connect your sensor to record.',
+                              style: theme.textTheme.bodyMedium),
+                          const SizedBox(height: 8),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: AppButton(
+                              text: 'Device',
+                              height: 50,
+                              onPressed: () => openDevice(context),
+                            ),
+                          ),
+                        ],
+                        if (idle && _app.videoSettings != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: AppButton(
+                              key: const Key('startSetVideo'),
+                              text: 'Start Set + Video',
+                              height: 50,
+                              style: sensor.isStreaming
+                                  ? AppButtonStyle.primary
+                                  : AppButtonStyle.idle,
+                              onPressed: sensor.isStreaming ? _armVideo : null,
+                            ),
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
                           child: AppButton(
-                            text: 'Device',
+                            key: const Key('recordButton'),
+                            text: switch (_phase) {
+                              _Phase.idle => 'Start Set',
+                              _Phase.recording => 'Stop',
+                              _Phase.analysing => 'Please wait…',
+                            },
                             height: 50,
-                            onPressed: () => openDevice(context),
+                            onPressed: switch (_phase) {
+                              _Phase.idle => sensor.isStreaming ? _start : null,
+                              _Phase.recording => _stop,
+                              _Phase.analysing => null,
+                            },
                           ),
                         ),
                       ],
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: AppButton(
-                          key: const Key('recordButton'),
-                          text: switch (_phase) {
-                            _Phase.idle => 'Start Set',
-                            _Phase.recording => 'Stop',
-                            _Phase.analysing => 'Please wait…',
-                          },
-                          height: 50,
-                          onPressed: switch (_phase) {
-                            _Phase.idle => sensor.isStreaming ? _start : null,
-                            _Phase.recording => _stop,
-                            _Phase.analysing => null,
-                          },
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ]),
+                ]),
+              ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-
-/// Record-video switch, settings, and a live preview while enabled.
-class _VideoCard extends StatelessWidget {
-  const _VideoCard({
-    required this.recorder,
-    required this.settings,
-    required this.enabled,
-    required this.onToggle,
-    required this.onSettings,
-    this.cameraBlocked = false,
-    this.onFixAccess,
-  });
-
-  final SetVideoRecorder recorder;
-  final VideoSettings settings;
-  final bool enabled;
-  final ValueChanged<bool> onToggle;
-  final VoidCallback onSettings;
-
-  /// Video is on but camera access was revoked.
-  final bool cameraBlocked;
-  final VoidCallback? onFixAccess;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: ListenableBuilder(
-        listenable: recorder,
-        builder: (context, _) {
-          final c = recorder.controller;
-          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            SwitchListTile(
-              key: const Key('videoSwitch'),
-              secondary: Icon(recorder.isRecording ? Icons.videocam : Icons.videocam_outlined,
-                  color: recorder.isRecording ? theme.colorScheme.error : null),
-              title: const Text('Record video'),
-              subtitle: Text('${settings.lens.label} · ${settings.quality.label} · '
-                  '${settings.fps} fps${settings.audio ? ' · sound' : ''}'),
-              value: settings.enabled,
-              onChanged: enabled ? onToggle : null,
+          if (_videoArmed)
+            Positioned.fill(
+              child: ListenableBuilder(
+                listenable: sensor,
+                builder: (context, _) => VideoCaptureMode(
+                  recorder: _video,
+                  settings: _videoSettings,
+                  isRecording: _phase == _Phase.recording,
+                  onRecordTap: switch (_phase) {
+                    _Phase.idle => sensor.isStreaming ? _start : null,
+                    _Phase.recording => _stop,
+                    _Phase.analysing => null,
+                  },
+                  onClose: _cancelVideo,
+                  onSettings: (s) => _app.videoSettings?.update(s),
+                ),
+              ),
             ),
-            if (cameraBlocked)
-              ListTile(
-                key: const Key('cameraBlocked'),
-                leading: Icon(Icons.no_photography, color: theme.colorScheme.error),
-                title: const Text('Camera access needed'),
-                subtitle: const Text('Sets record without video until it is allowed.'),
-                trailing: TextButton(onPressed: onFixAccess, child: const Text('Allow')),
-              )
-            else if (settings.enabled && recorder.error != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: Text('Camera: ${recorder.error}',
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: theme.colorScheme.error)),
-              ),
-            if (settings.enabled && c != null && recorder.isReady)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 280),
-                child: Center(
-                  child: AspectRatio(
-                    // Preview size is landscape; phones record portrait.
-                    aspectRatio: 1 / c.value.aspectRatio,
-                    child: CameraPreview(c),
-                  ),
-                ),
-              ),
-            if (settings.enabled)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: enabled ? onSettings : null,
-                  icon: const Icon(Icons.tune),
-                  label: const Text('Video settings'),
-                ),
-              ),
-          ]);
-        },
+        ]),
       ),
     );
   }

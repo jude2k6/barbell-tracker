@@ -17,6 +17,9 @@ abstract final class AppColors {
   static const purple2 = Color(0xFF782EFD);
   static const fourgroundSolid = Color(0xFF201B28);
 
+  /// The near-black `StanceBackground` behind Stance's RPE and edit sheets.
+  static const sheetBackground = Color(0xFF101010);
+
   /// Compose's `Color.Gray`, which Stance uses for secondary labels.
   static const gray = Color(0xFF888888);
 

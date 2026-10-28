@@ -897,8 +897,7 @@ are (startSec, endSec) per rep on the set's velocity trace.
   start → "End time must be after start time". Errors show in an "Error"
   dialog. Delete asks "Are you sure you want to delete Rep %d? This action
   cannot be undone." Add and delete are saved at once; moved markers on
-  "Save". Closing with moved markers asks "Unsaved Changes" (Save /
-  Discard).
+  "Save". Closing with moved markers asks "Unsaved Changes" (Save / Discard / Cancel; §28).
 - Commit: any marker with end ≤ start → invalid. Markers are sorted by
   start. Per marker: `mean` = average and `peak` = max of the trace slice
   `[indexAt(start), end ≥ duration ? n : indexAt(end))` (empty slice → 0);
@@ -1484,3 +1483,150 @@ marked for upload. IMU quality metrics are **not** recomputed. Errors logged
   works from disk for any set with its CSV (UNAVAILABLE only when it's
   missing); no Vercel step. The Recording screen's plot-only CSV import is
   not ported (that screen is skipped).
+
+## 27. Calibration screen — traced (23 Oct 2026)
+
+Source: `presentation/calibration/CalibrationScreenKt`,
+`CalibrationViewModel` (+ `$canStartCalibration$1`), `ComposableSingletons$CalibrationScreenKt`,
+`settings/SettingsScreenKt`, `navigation/NavGraphKt$StanceNavHost$1$1$1$4`,
+`data/repository/NativeBleDeviceRepository`, `nativestack/BleCoordinator`,
+`WitGattSession`, `WitMotionCalibrationCommands`; strings from `resources.arsc`.
+
+**Reaching it (observed).** Only from the Debug Menu (`SettingsScreen`) button
+"Calibration" (`calibration_screen_title`, plain Material `Button`), which
+navigates to `MainRoutes.Calibration` (`"calibration"`, `launchSingleTop`).
+Nothing else links to it. Back pops; the top bar's device button opens Device.
+
+**Layout (observed).** `Scaffold` on `colorScheme.background`, Material 3
+`TopAppBar` (background colours; title "Calibration" in the default title
+style; `IconButton` with AutoMirrored ArrowBack, description `home_back`;
+action `SmallDeviceStatusButton`). Body: `Column`, fill size, scaffold
+padding + 24 dp, `spacedBy(16)`, start-aligned:
+1. `calibration_instructions` "Place the WitMotion IMU on a flat, level
+   surface and keep it still. Calibration runs for 10 seconds after you
+   start." — bodyLarge, start-aligned.
+2. `Spacer(8 dp)`.
+3. Status line, first match wins: not `Connected` → `calibration_connect_wit_first`
+   "Connect a WitMotion IMU from the Devices screen to calibrate."; connected
+   to the in-house encoder → `calibration_stance_encoder_hint` (WitMotion
+   calibration unavailable on the encoder); counting → `calibration_countdown_format`
+   "%1$d s" in displaySmall; else `calibration_ready_hint` "When you are
+   ready, tap Start calibration." The hints are bodyMedium in
+   `onSurfaceVariant`.
+4. `Spacer(weight 1)`, then `StanceButton` full width, 16 dp radius, 48 dp
+   high: "Start calibration" (`calibration_start`) or, while running,
+   "Calibrating…" (`calibration_in_progress`); Primary and enabled only when
+   `canStart && !isCalibrating`, else Idle and disabled.
+No illustration, no progress bar.
+
+**Logic (observed, `CalibrationViewModel`).** `canStartCalibration` =
+connection is `Connected` and the last connected kind is not the encoder.
+`startCalibration()` (ignored unless `canStart` and not already calibrating):
+`isCalibrating = true`; `repository.calibrateWitImuFlatSurface()` **first**;
+then for i in 0..9: `secondsRemaining = 10 − i`, `delay(1000)`; then
+`secondsRemaining = null` (jadx shows `0`; the boxed-null constant),
+`isCalibrating = false`, `showCalibrationSuccess = true`. Nothing is measured
+and there is no failure path: the success dialog always follows the 10 s,
+even if the link dropped. The command is fire-and-forget: the native stack
+posts `FF AA 01 01 00` (`IOS_STYLE_FLAT_IMU`) to the write queue with write
+type 2 (with response) when the GATT is ready and the connection is
+WitMotion (else it logs "Flat Wit calibration ignored"); the vendor-SDK
+stack only logs a warning. No save (`FF AA 00 00 00`) or exit command
+follows, so the sensor runs its own accelerometer calibration during the
+10 s. Leaving the screen clears the view model and cancels the countdown
+(no confirm, no guard on back).
+
+**Success (observed).** `StanceAlertDialog` "Calibration complete" /
+"IMU calibration finished successfully." with one Primary "OK"; OK and
+dismiss both call `dismissCalibrationSuccess()`; the screen stays open,
+back to the ready hint.
+
+**Port** (`lib/ui/calibration_page.dart`, replaces the 5 s
+`calibration_dialog.dart`): same layout, strings, 10 s, command-first order
+(the old dialog counted 5 s and then sent the command). Reached from the
+Debug Menu "Calibration" button, plus our own Device page "Calibrate (lay
+flat)" shortcut. Adapted: "connected" = our sensor is streaming; the encoder
+hint is dropped (we only have WitMotion links); a failed BLE write
+(Stance never sees one; its write is fire-and-forget) stops the countdown and shows
+"Calibration failed" instead of a false success; the success dialog is our
+`AppAlert` (ignores outside taps and back).
+
+## 28. Rep Check chart, marker drag and synced video — traced (23 Oct 2026)
+
+Source: `presentation/workout/sessionfeedback/components/RepCheckSheetKt`
+(`RepCheckSheet`, `RepCheckChart`, `RepMarkerBubbleRow`,
+`RepCheckVideoPlayer`, `AddRepPanel`, `RepMarkerRow`, `applyScrub`,
+`handleAddRepAction`), its `$RepCheckChart$1$1$1` and
+`$RepMarkerBubbleRow$2$1$1$2$1` pointer coroutines and
+`$RepCheckVideoPlayer$2$1`/`$3$1` effects. Extends §17.
+
+**Layout (observed).** Header (Save, "Rep Check", Done); instruction; the
+video player if the set has one (220 dp, 12 dp corners); the chart in a
+`stanceCard` with 12 dp padding, 200 dp tall with a video, 280 dp without;
+a 40 dp row of marker bubbles; a window slider only when the range is
+longer than 10 s; then either the rep rows ("Rep N", "x.xxs – y.yys",
+delete) with a Secondary "Add Rep" button, or, while adding, `AddRepPanel`.
+No other sliders.
+
+**Range and scrubber (observed).** Constants `BUFFER_SEC` 5,
+`WINDOW_SEC` 10, `EDGE_THRESHOLD_SEC` 1.5, `MIN_REP_DURATION_SEC` 0.1.
+Data range = [max(first.start − 5, 0), min(last.end + 5, duration)] of the
+current markers. Over 10 s it scrolls: window = [ws, ws + 10], ws initially
+clamp(mid(first saved start, last saved end) − 5, dataStart, max(dataEnd −
+10, dataStart)); the slider (thumb Primary, active Primary 60 %, inactive
+white 12 %) moves ws and, unless adding, puts the scrubber at ws + 5. The
+scrubber starts in the window's middle; window and scrubber reset when the
+saved markers change. Dragging anywhere on the chart (`detectDragGestures`,
+start and move) scrubs to `ws + x / width · span`; `applyScrub` clamps to
+the visible window and, when scrolling, pans ws by the shortfall when the
+scrubber is within 1.5 s of an edge with more data beyond. Tapping alone
+doesn't scrub. No snapping anywhere.
+
+**Chart drawing (observed; sizes in raw px).** Y range = visible slice ±
+max(10 % of its range, 0.05). Zero line white 15 %, 1 px. Each current rep
+shaded Primary 12 % with its number (11 sp medium SubtitleGray) at the top.
+Trace white, 4 px. Saved markers as gray 30 % dashed (10/6) 3 px ghost
+lines; current starts green `0xFF34C759` 70 %, ends red `0xFFE85252` 70 %,
+same dash (gray 30 % while adding). Pending new start/end: solid-colour
+dashed (12/8) 4 px. Scrubber `0xFF0A84FF` 4 px with a 14 px dot on the
+trace and its time ("%.2fs") at the bottom; window start/end times in the
+bottom corners.
+
+**Marker drag (observed).** Markers are dragged by their bubbles, not on the
+chart: per visible start/end a 30 dp circle at the marker's x (centred),
+"R#s"/"R#e" white 10 sp bold, fill green/red 80 % with a 2 dp border of the
+same colour; while adding gray 50 % fill, gray border and no drag. Hit area
+= the 30 dp circle. Drag: `t = clamp(old + dx / rowWidth · span, ws, we)`,
+then the sheet clamps a start to [previous end or 0, own end − 0.1] and an
+end to [own start + 0.1, next start or duration], and marks the sheet
+dirty. The only selected-state styling: the dragged bubble's z-index goes
+to 1000 (others: rep index). The bubble row spans the full width while the
+chart's canvas is inside 12 dp padding (inferred: bubbles sit slightly off
+their lines).
+
+**Video (observed).** `RepCheckVideoPlayer(video, scrubberSec, 0.0)`: an
+ExoPlayer, exact seeks, volume 0, never plays; `PlayerView` without
+controls, fit. Each scrubber change seeks to `max(0, scrubber − 0) · 1000`
+ms (Stance passes a 0 offset). A "%.2fs" badge (white 14 sp bold on black
+60 %, 6 dp corners, 10/6 dp padding, 12 dp in) at the top-left. No video →
+no player and the taller chart; nothing else changes.
+
+**Add and leave (observed).** "Add Rep" enters adding (clears start/end).
+`AddRepPanel`: "Start:" + green bold time, "End:" + red bold time once
+set; one Primary button "Set start time" → "Set end time" → "Add Rep"
+(`handleAddRepAction`: validates the scrubber time as §17, end ≤ start →
+"End time must be after start time"; the third press commits the markers
+sorted by start and leaves adding); Idle "Cancel". Deleting the last rep
+closes the sheet. Unsaved Changes dialog actions in order: Save (Primary:
+commit moved markers, close), Discard (Warning: close), Cancel (Secondary:
+close the dialog only; outside tap does the same).
+
+**Port.** `lib/ui/rep_check_page.dart`, `lib/ui/charts/rep_check_chart.dart`,
+logic in `lib/workout/rep_editing.dart` (`moveMarker`, `RepCheckRange`);
+tests `test/rep_check_test.dart`, `test/rep_editing_test.dart`.
+Deviations: the video seek applies our `videoOffsetSec` (via
+`OverlayTimeline.clampedVideoPosition`), as our export does; bubbles align
+with the chart's plot (inside its padding); px sizes are converted at about
+2.5x; bubble drags follow the finger from touch-down (Stance starts after
+the touch slop); the dialog is a plain Material `AlertDialog` with three
+`TextButton`s; the saving card is the same, other than Material's spinner.

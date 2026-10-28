@@ -5,6 +5,7 @@ import '../workout/file_log.dart';
 import 'app_scope.dart';
 import 'app_theme.dart';
 import 'app_widgets.dart';
+import 'calibration_page.dart';
 import 'device_stream_page.dart';
 import 'sensor_status_chip.dart';
 import 'workout_flow.dart';
@@ -12,9 +13,9 @@ import 'workout_flow.dart';
 /// Stance's `SettingsScreen` (back button, 26 dp title, status chip, 16 dp
 /// padding), titled "Debug Menu" and opened from the Home
 /// menu. Keeps the rows that work without an account: file logging with
-/// "Share debug log", the device stream test and "Forget saved BLE devices".
-/// Skipped: Firebase ID, BLE stack switch, Recording and Calibration screens,
-/// sync diagnostics and Sign out.
+/// "Share debug log", the device stream test, Calibration and "Forget saved
+/// BLE devices". Skipped: Firebase ID, BLE stack switch, the Recording
+/// screen, sync diagnostics and Sign out.
 class DebugMenuPage extends StatelessWidget {
   const DebugMenuPage({super.key, this.share = shareDebugLog});
 
@@ -84,6 +85,12 @@ class DebugMenuPage extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => const DeviceStreamPage()),
               ),
               child: const Text('Test device data stream'),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              key: const Key('calibrationMenu'),
+              onPressed: () => openCalibration(context),
+              child: const Text('Calibration'),
             ),
             if (saved != null) ...[
               const SizedBox(height: 16),

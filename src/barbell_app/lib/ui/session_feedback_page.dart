@@ -251,10 +251,18 @@ class _SessionFeedbackPageState extends State<SessionFeedbackPage> {
       _session.sets.where((s) => s.id == id).firstOrNull;
 
   Future<SetRecord?> _checkReps(SetRecord set) async {
+    // Rep Check shows the set's video when its file is still there.
+    final videoFile = set.videoFile;
+    final video = videoFile == null
+        ? null
+        : await SetVideoRecorder().resolve(videoFile);
+    final hasVideo = video != null && await video.exists();
+    if (!mounted) return _latest(set.id);
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => RepCheckPage(
         set: set,
         preferences: _app.preferences,
+        video: hasVideo ? video : null,
         onCommit: (markers) async {
           final edited = applyRepMarkers(_latest(set.id) ?? set, markers);
           if (edited != null) await _saveSet(edited);

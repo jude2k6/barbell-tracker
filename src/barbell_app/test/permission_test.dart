@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:barbell_app/permissions/ble_readiness.dart';
 import 'package:barbell_app/permissions/permission_service.dart';
-import 'package:barbell_app/ui/app_widgets.dart';
 import 'package:barbell_app/ui/permission_prompts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -182,7 +181,7 @@ void main() {
       final b = FakeBackend(status: {AppCapability.camera: Access.granted});
       final s = service(b);
       final results = await host(tester, s, AppCapability.camera);
-      expect(find.byType(AppAlert), findsNothing);
+      expect(find.byType(AlertDialog), findsNothing);
       expect(results, [true]);
     });
 
@@ -264,7 +263,7 @@ void main() {
     testWidgets('silent when Location Services is on or not needed', (tester) async {
       final b = off()..sdk = 33;
       final results = await run(tester, service(b));
-      expect(find.byType(AppAlert), findsNothing);
+      expect(find.byType(AlertDialog), findsNothing);
       expect(results, [true]);
     });
 
@@ -293,11 +292,11 @@ void main() {
       await tester.tap(find.text('Turn on Location'));
       await tester.pumpAndSettle();
       expect(b.locationSettingsOpened, 1);
-      expect(find.byType(AppAlert), findsOneWidget);
+      expect(find.byType(AlertDialog), findsOneWidget);
       b.locationOn = true;
       await s.refresh();
       await tester.pumpAndSettle();
-      expect(find.byType(AppAlert), findsNothing);
+      expect(find.byType(AlertDialog), findsNothing);
       expect(results, [true]);
     });
   });

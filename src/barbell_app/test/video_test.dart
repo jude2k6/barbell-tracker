@@ -25,6 +25,12 @@ SetRecord videoSet({double offset = 1.5}) => SetRecord(
 
 void main() {
   group('OverlayTimeline', () {
+    test('a position before the video starts clamps to 0', () {
+      final t = OverlayTimeline(videoSet(offset: -2));
+      expect(t.clampedVideoPosition(1), Duration.zero);
+      expect(t.clampedVideoPosition(3), const Duration(seconds: 1));
+    });
+
     test('video time = sensor time + offset', () {
       final t = OverlayTimeline(videoSet());
       expect(t.sensorTime(const Duration(milliseconds: 4500)), closeTo(3.0, 1e-9));
@@ -106,7 +112,7 @@ void main() {
       addTearDown(() => dir.delete(recursive: true));
       final a = VideoSettingsStore(baseDirectory: () async => dir);
       await a.update(const VideoSettings(
-          enabled: true, lens: VideoLens.front, quality: VideoQuality.uhd, fps: 60, audio: true));
+          lens: VideoLens.front, quality: VideoQuality.uhd, fps: 60));
       final b = VideoSettingsStore(baseDirectory: () async => dir);
       await b.load();
       expect(b.value, a.value);
