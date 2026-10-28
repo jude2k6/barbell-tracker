@@ -5,7 +5,9 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 import '../sensor/sensor_link.dart';
 import '../sensor/witmotion/witmotion_link.dart';
+import '../workout/preferences.dart';
 import '../workout/sensor_controller.dart';
+import '../workout/stream_mode.dart';
 import 'app_scope.dart';
 import 'app_theme.dart';
 import 'app_widgets.dart';
@@ -176,7 +178,9 @@ class _DevicePageState extends State<DevicePage> {
     SensorController sensor,
     BluetoothDevice device,
   ) async {
-    await sensor.connect(WitMotionLink(device));
+    final prefs = AppScope.of(context).preferences?.value;
+    await sensor.connect(WitMotionLink(device,
+        mode: witModeFor(prefs ?? const Preferences())));
     if (!context.mounted) return;
     if (!sensor.isStreaming && sensor.lastError != null) {
       ScaffoldMessenger.of(context).showSnackBar(

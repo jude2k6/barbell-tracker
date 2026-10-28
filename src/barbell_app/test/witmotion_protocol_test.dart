@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:barbell_app/sensor/rate_monitor.dart';
 import 'package:barbell_app/sensor/sensor_sample.dart';
+import 'package:barbell_app/sensor/witmotion/witmotion_mode.dart';
 import 'package:barbell_app/sensor/witmotion/witmotion_protocol.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -41,15 +42,27 @@ List<int> batteryFrame(int centivolts) {
   return d.buffer.asUint8List();
 }
 
+/// A stock 20-byte frame captured from a WT9011DCL lying flat:
+/// accel ≈ (−0.01, −0.002, 1.006) g, roll −0.14°, pitch 0.63°.
+const standardFrame = [
+  0x55, 0x61, 0xea, 0xff, 0xfb, 0xff, 0x0d, 0x08, 0x01, 0x00, //
+  0x00, 0x00, 0xff, 0xff, 0xe6, 0xff, 0x73, 0x00, 0x00, 0x00,
+];
+
+List<WitImuFrame> imuFrames(List<WitEvent> events) =>
+    events.whereType<WitImuFrame>().toList();
+
 void main() {
   group('WitFrameDecoder', () {
-    test('decodes scaling, chip time and world-Z of a 0x61 frame', () {
-      final events = WitFrameDecoder().add(
-        imuFrame(gyroRaw: [16384, 0, -16384]),
-        hostTimeUs: 42,
-      );
-      expect(events, hasLength(1));
-      final s = (events.single as WitImuEvent).sample;
+    test('decodes scaling, chip time and quaternion of a 30-byte frame', () {
+      final decoder = WitFrameDecoder();
+      final events = decoder.add([
+        ...imuFrame(gyroRaw: [16384, 0, -16384]),
+        ...imuFrame(),
+      ]);
+      expect(events, hasLength(2));
+      expect(decoder.imuLength, 30);
+      final s = extendedSample(events.first as WitImuFrame, 42);
       expect(s.hostTimeUs, 42);
       expect(s.az, closeTo(1.0, 1e-9)); // 2048 / 32768 * 16
       expect(s.gx, closeTo(1000.0, 1e-9));
@@ -60,6 +73,48 @@ void main() {
         s.sensorTimeMs,
         DateTime.utc(2026, 10, 12, 14, 30, 5, 250).millisecondsSinceEpoch,
       );
+    });
+
+    test('decodes the stock 20-byte frame', () {
+      final decoder = WitFrameDecoder();
+      final frames = imuFrames(decoder.add([...standardFrame, ...standardFrame]));
+      expect(frames, hasLength(2));
+      expect(decoder.imuLength, 20);
+      final f = frames.first;
+      expect(f.isExtended, isFalse);
+      expect(f.ax, closeTo(-22 / 32768 * 16, 1e-9));
+      expect(f.az, closeTo(2061 / 32768 * 16, 1e-9));
+      expect(f.gx, closeTo(1 / 32768 * 2000, 1e-9));
+      expect(f.gz, closeTo(-1 / 32768 * 2000, 1e-9));
+      expect(f.tail, [0xe6, 0xff, 0x73, 0x00, 0x00, 0x00]);
+    });
+
+    test('never reads a 20-byte stream as 30-byte frames', () {
+      final decoder = WitFrameDecoder();
+      final bytes = [for (var i = 0; i < 50; i++) ...standardFrame];
+      expect(imuFrames(decoder.add(bytes)), hasLength(50));
+      expect(decoder.skippedBytes, 0);
+    });
+
+    test('splits frames packed into one notification', () {
+      final decoder = WitFrameDecoder()..add([...standardFrame, ...standardFrame]);
+      final packed = [for (var i = 0; i < 8; i++) ...standardFrame];
+      expect(imuFrames(decoder.add(packed)), hasLength(8));
+    });
+
+    test('waits for the next header before guessing the length', () {
+      final decoder = WitFrameDecoder();
+      expect(decoder.add(standardFrame), isEmpty);
+      // Detected: the held frame and this one, then one per notification.
+      expect(imuFrames(decoder.add(standardFrame)), hasLength(2));
+      expect(imuFrames(decoder.add(standardFrame)), hasLength(1));
+    });
+
+    test('keeps register replies between 20-byte frames', () {
+      final events = WitFrameDecoder().add(
+          [...standardFrame, ...batteryFrame(380), ...standardFrame, ...standardFrame]);
+      expect(events.whereType<WitBatteryEvent>(), hasLength(1));
+      expect(imuFrames(events), hasLength(3));
     });
 
     test('reassembles frames split across notifications', () {
@@ -75,9 +130,21 @@ void main() {
 
     test('resyncs after garbage and skips unknown frame types', () {
       final decoder = WitFrameDecoder();
-      final events = decoder.add([0x00, 0x55, 0x00, 0x13, ...imuFrame()]);
-      expect(events, hasLength(1));
+      final events =
+          decoder.add([0x00, 0x55, 0x00, 0x13, ...imuFrame(), ...imuFrame()]);
+      expect(events, hasLength(2));
       expect(decoder.skippedBytes, 4);
+    });
+
+    test('detects the length again when the stream stops lining up', () {
+      final decoder = WitFrameDecoder()..add([...standardFrame, ...standardFrame]);
+      final events = decoder.add([
+        ...standardFrame.sublist(0, 9), // a truncated frame
+        ...imuFrame(), ...imuFrame(), ...imuFrame(),
+      ]);
+      // The truncated frame swallows the start of the first 30-byte one.
+      expect(decoder.imuLength, 30);
+      expect(imuFrames(events).where((f) => f.isExtended), hasLength(2));
     });
 
     test('parses battery register replies', () {
@@ -136,6 +203,15 @@ void main() {
         ..add(at(5000));
       expect(m.clockJumps, 2);
       expect(m.estimatedMissing, 0);
+    });
+
+    test('measures the rate again after a clock jump', () {
+      final m = RateMonitor()..add(at(8323059)); // stale frame before 0x96 = 2
+      for (var ms = 150000; ms <= 151000; ms += 5) {
+        m.add(at(ms));
+      }
+      expect(m.clockJumps, 1);
+      expect(m.hz, closeTo(200, 1));
     });
   });
 }

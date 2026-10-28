@@ -45,9 +45,13 @@ decompiled app. Trace how Stance implements each one before building it.
       walkthrough, the four guide tips and the rep edit guide, each shown
       once (seen flags in `Preferences`); the 60 s analysis countdown, and
       leaving the record page while it analyses. Logic in
-      `workout/rep_editing.dart` and `workout/guide_tips.dart`. Differences:
-      Rep Check uses sliders instead of draggable chart markers and has no
-      synced video; a moved rep's ROM shows as unknown, not 0.
+      `workout/rep_editing.dart` and `workout/guide_tips.dart`. Rep Check
+      (`ui/rep_check_page.dart`, `ui/charts/rep_check_chart.dart`, notes
+      §28) has Stance's draggable R#s/R#e bubbles, scrubbable chart and
+      synced muted video; its unsaved-changes dialog is Save / Discard /
+      Cancel (Material). Differences: the video seeks with our sync offset
+      (Stance assumes 0); the bubbles line up with the chart's plot; a
+      moved rep's ROM shows as unknown, not 0.
 - [x] **Session day types** *(Stance, notes §18)*: done. `Day:` session
       tags (`workout/session_tags.dart`); day dropdown and the "What type of
       session are you doing today?" prompt on the feedback page; shown in
@@ -140,14 +144,14 @@ decompiled app. Trace how Stance implements each one before building it.
       work without an account: File logging + "Share debug log"
       (`share_plus`), "Test device data stream", "Forget saved BLE devices"
       (also disconnects, unlike Stance). Logger `workout/file_log.dart`
-      (`AppLog`, `debug_logs/stance-app.log`, Stance's line format, 5 MiB
+      (`AppLog`, `debug_logs/barbell-tracker.log`, Stance's line format, 5 MiB
       cap trimmed 10 lines at a time); logs app load, sensor, recording,
       analysis and save events, plus Stance's "SET COMPLETED" block with
       the IMU quality metrics (`workout/set_log.dart`). Device Stream (`ui/device_stream_page.dart`,
       `workout/device_stream.dart`): Start/Stop/Clear, acceleration,
       quaternion and global-acceleration plots, stationary/uncalibrated/
       streaming-issue badges. Skipped rows: Firebase ID, BLE stack switch,
-      Recording/Calibration screens, sync diagnostics, Sign out; and
+      Recording screen, sync diagnostics, Sign out; and
       per-screen lifecycle logging.
 - [x] **Visual style** *(Stance, `presentation/theme` and each screen's
       composables)*: done. Theme in `ui/app_theme.dart` (`AppColors`, `appTheme()`), shared widgets in `ui/app_widgets.dart` (dark-only
@@ -159,20 +163,41 @@ decompiled app. Trace how Stance implements each one before building it.
       Details and the import card. Behaviour changes made to match Stance:
       New Session shows only when no session is active; the record timer
       counts whole seconds; Preferences has no back button.
-- [ ] **Visual style follow-ups**:
-      - Extract the vector drawables `stance_ai` (`res/Fn.xml`) and
-        `icon_comparison`. Sparkle and compare-arrows icons stand in for
-        them now.
-      - `SessionTagsRow` (Sessions cards, feedback header) still uses
-        Material chips, not Stance's `SessionTagPill`.
-      - Not yet seen on screen, even in test renders: the connected-device
-        view, the permission dialogs, the RPE profile page and the video
-        review page.
-      - The confirm dialogs on Rep Check and RPE still use plain
-        AlertDialog.
-      - Stance runs Calibration as a full screen with a 10 s run; ours is a
-        5 s dialog. Stance's "Start Set + Video" full-screen capture mode
-        isn't ported; our video card stands in.
+      "Start Set + Video" (`ui/video_capture_mode.dart`) replaces our video
+      card: camera permission, then Stance's full-screen capture (preview,
+      FPS/quality/lens pills, record button that runs the set, close while
+      idle); it closes when the set stops. Video is silent, as Stance's,
+      so the sound option and the settings sheet are gone (the microphone
+      capability and its Info.plist string are now unused). Own change:
+      the lens/quality/FPS choice is still saved between runs.
+- [x] **Visual style follow-ups**: done (2026-10-23).
+      - Connected device view, permission prompts and banner, RPE profile
+        page and video review page rendered in a widget test and checked
+        against Stance. Fixes: trace card no longer nested; "Sensors"
+        header; "Bluetooth" keeps its capital; banner follows
+        `BlePermissionsCard`. RPE profile:
+        #101010 background (`AppColors.sheetBackground`), Stance's row
+        order and spacing, chart unit label no longer overlaps, opens on
+        RPE 5–10, Edit is the `RpeProfileEditSheet` port (shared
+        `RpeSliderCard`). Video review controls restyled as pills, circle
+        buttons and the app slider. Still pages, not sheets, unlike Stance.
+      - Kept on purpose (user's choice, 2026-10-23): Material sparkle and
+        compare-arrows icons instead of Stance's `stance_ai` (`res/Fn.xml`)
+        and `icon_comparison` (`res/Eq.xml`) drawables, and plain Material
+        `AlertDialog` for confirm dialogs instead of Stance's
+        `StanceAlertDialog`. All popups, permission prompts included, are
+        `AlertDialog`s; `AppAlert` was removed.
+- [x] **Session tag pills** *(Stance `SessionTagsRowKt`)*: done.
+      `SessionTagsRow` in `ui/session_tag_editor.dart` uses Stance's look:
+      15 dp gray tag icon, 20 dp gray count circle, 8 dp-radius pills
+      (white 8 % fill, white 85 % `labelSmall`, 8×2 dp padding) in a
+      sideways-scrolling row. The Material chips are gone.
+- [x] **Calibration screen** *(Stance `CalibrationScreen`, notes §27)*: done.
+      `ui/calibration_page.dart` replaces the 5 s dialog: full screen, opened
+      from the Debug Menu (and our Device page shortcut); sends the flat
+      calibration at once, counts 10 s down, then "Calibration complete".
+      Own changes: a failed BLE write shows "Calibration failed"; the
+      result popups are Material dialogs.
 
 Deliberately out of scope: auth, onboarding and welcome screens, the
 affiliate and WhatsApp prompts, "update required", cloud sync (Supabase),
@@ -180,6 +205,20 @@ server-side analysis (Vercel).
 
 ## Own gaps
 
+- [ ] **Sensor clock and 20-byte frames** (`notes/sensor-clock-problems.md`):
+      decoding fixed. `WitFrameDecoder` detects 20- vs 30-byte frames, and
+      a `WitStreamMode` (`lib/sensor/witmotion/witmotion_mode.dart`) turns
+      them into samples: `WitAnglesMode` (default: sensor angles, times
+      rebuilt from arrivals) or `WitClockMode` (0x96 = 2 ms counter,
+      orientation from `TiltFilter`). Picked live on Debug Menu → Sensor
+      diagnostics (saved in preferences, used at every connect), which also
+      shows per-notification timing and compares our filter with the
+      sensor's during reps. All writes now go after the unlock. Android now
+      requests high connection priority. Left: verify on the
+      phone (delivered rate, packed notifications, which mode reads better);
+      sets recorded before the fix are garbage and need re-recording.
+      Clock mode's own orientation: hand-off and test plan in
+      `notes/own-orientation-clock-mode.md`.
 - [ ] **Export and share** raw CSVs off the phone (videos: done via
       Video export).
 - [ ] **kg/lb display**: the weight unit is now a preference used for
@@ -231,4 +270,4 @@ server-side analysis (Vercel).
 - **No Android SDK or Xcode** on this host: native code
   (`SetVideoExportChannel.kt`) can't be compiled here.
 - **Checks:** run `~/tools/flutter/bin/flutter test` and `flutter analyze`
-  in `src/barbell_app`. Last run (2026-10-17): 247 tests passing, analysis clean.
+  in `src/barbell_app`. Last run (2026-10-23): 265 tests passing, analysis clean.

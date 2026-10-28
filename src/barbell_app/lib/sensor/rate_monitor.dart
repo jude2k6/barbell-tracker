@@ -27,6 +27,7 @@ class RateMonitor {
       final expected = 1000 / nominalHz;
       if (dt <= 0 || dt > 2000) {
         clockJumps++; // matches the reference app's gap-repair rule
+        _times.clear(); // a rate across the jump would be meaningless
       } else if (dt > 1.5 * expected) {
         estimatedMissing += (dt / expected).round() - 1;
       }

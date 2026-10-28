@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../sensor/orientation.dart';
 import 'session.dart';
 import 'user_profile.dart';
 
@@ -18,6 +19,8 @@ class Preferences {
     this.profile = const UserProfile(),
     this.seenGuides = const {},
     this.savedSensorId,
+    this.clockMode = false,
+    this.tiltGains = const TiltGains(),
   });
 
   factory Preferences.fromJson(Map<String, dynamic> j) => Preferences(
@@ -31,6 +34,11 @@ class Preferences {
           for (final g in (j['seenGuides'] as List? ?? const [])) g as String,
         },
         savedSensorId: j['savedSensorId'] as String?,
+        clockMode: j['clockMode'] as bool? ?? false,
+        tiltGains: switch (j['tiltGains']) {
+          final Map<String, dynamic> g => TiltGains.fromJson(g),
+          _ => const TiltGains(),
+        },
       );
 
   final WeightUnit weightUnit;
@@ -44,6 +52,14 @@ class Preferences {
   /// reconnected to automatically. Null when none or forgotten.
   final String? savedSensorId;
 
+  /// Debug: stream the sensor's ms counter and compute orientation in the
+  /// app (WitClockMode) instead of using the sensor's angles.
+  final bool clockMode;
+
+  /// Debug: gains for the app's own tilt filter, tuned on the diagnostics
+  /// screen.
+  final TiltGains tiltGains;
+
   Preferences copyWith({
     WeightUnit? weightUnit,
     HeightUnit? heightUnit,
@@ -51,6 +67,8 @@ class Preferences {
     Set<String>? seenGuides,
     String? savedSensorId,
     bool forgetSavedSensor = false,
+    bool? clockMode,
+    TiltGains? tiltGains,
   }) =>
       Preferences(
         weightUnit: weightUnit ?? this.weightUnit,
@@ -59,6 +77,8 @@ class Preferences {
         seenGuides: seenGuides ?? this.seenGuides,
         savedSensorId:
             forgetSavedSensor ? null : savedSensorId ?? this.savedSensorId,
+        clockMode: clockMode ?? this.clockMode,
+        tiltGains: tiltGains ?? this.tiltGains,
       );
 
   Map<String, dynamic> toJson() => {
@@ -67,6 +87,8 @@ class Preferences {
         'profile': profile.toJson(),
         'seenGuides': [...seenGuides]..sort(),
         if (savedSensorId != null) 'savedSensorId': savedSensorId,
+        if (clockMode) 'clockMode': true,
+        if (tiltGains != const TiltGains()) 'tiltGains': tiltGains.toJson(),
       };
 }
 

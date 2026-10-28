@@ -12,6 +12,7 @@ import 'workout/preferences.dart';
 import 'workout/saved_sensor.dart';
 import 'workout/sensor_controller.dart';
 import 'workout/session_store.dart';
+import 'workout/stream_mode.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,7 +43,8 @@ class _BarbellAppState extends State<BarbellApp> {
     _savedSensor = SavedSensor(
       sensor: _sensor,
       preferences: _preferences,
-      find: findWitMotion,
+      find: (id, timeout) =>
+          findWitMotion(id, timeout, mode: witModeFor(_preferences.value)),
       preferencesLoaded: _preferences.load(),
     );
   }
