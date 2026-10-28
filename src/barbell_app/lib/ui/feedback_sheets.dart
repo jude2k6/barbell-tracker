@@ -7,6 +7,7 @@ import '../workout/readiness.dart';
 import '../workout/rep_editing.dart';
 import '../workout/rpe_profile.dart';
 import '../workout/session.dart';
+import 'app_scope.dart';
 import 'app_theme.dart';
 import 'app_widgets.dart';
 import 'charts/rpe_profile_chart.dart';
@@ -159,7 +160,7 @@ Future<void> showRepSpeedSheet(BuildContext context,
         Text('Comparison against previous Sets & Sessions at',
             style: _subtitle(context, (t) => t.bodyLarge)),
         const SizedBox(height: 6),
-        Text(fmtWeight(set.weight, set.unit),
+        Text(fmtWeightIn(set.weight, set.unit, AppScope.weightUnitOf(context)),
             style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500)),
         const SizedBox(height: 24),
         if (history.isNotEmpty) WeightHistoryChart(points: history, height: 226),
@@ -387,13 +388,15 @@ class SetDeleted extends SetEdit {
   const SetDeleted();
 }
 
-/// Stance's Edit Set sheet (notes §17). Details: weight, set type, Copy
+/// Stance's Edit Set sheet (notes §17). Details: weight (in [unit], the
+/// preferred unit; a changed weight is saved in it), set type, Copy
 /// Set ID, Report Issue, Delete Set. Reps: the 7-day edit timer, total reps
 /// with Recalculate, and Check Reps.
 Future<SetEdit?> showEditSetSheet(
   BuildContext context, {
   required SetRecord set,
   required bool deadlift,
+  required WeightUnit unit,
   required Future<SetRecord> Function(SetRecord set) onSave,
   required Future<SetRecord?> Function(SetRecord set) onCheckReps,
   required Future<SetRecord> Function(SetRecord set) onReportIssue,
@@ -406,6 +409,7 @@ Future<SetEdit?> showEditSetSheet(
       (_) => _SetEditor(
         set: set,
         deadlift: deadlift,
+        unit: unit,
         onSave: onSave,
         onCheckReps: onCheckReps,
         onReportIssue: onReportIssue,
@@ -417,6 +421,7 @@ class _SetEditor extends StatefulWidget {
   const _SetEditor({
     required this.set,
     required this.deadlift,
+    required this.unit,
     required this.onSave,
     required this.onCheckReps,
     required this.onReportIssue,
@@ -425,6 +430,7 @@ class _SetEditor extends StatefulWidget {
 
   final SetRecord set;
   final bool deadlift;
+  final WeightUnit unit;
   final Future<SetRecord> Function(SetRecord set) onSave;
   final Future<SetRecord?> Function(SetRecord set) onCheckReps;
   final Future<SetRecord> Function(SetRecord set) onReportIssue;
@@ -436,8 +442,10 @@ class _SetEditor extends StatefulWidget {
 
 class _SetEditorState extends State<_SetEditor> {
   late SetRecord _set = widget.set;
-  late final _weight = TextEditingController(
-      text: widget.set.weight > 0 ? fmtNumber(widget.set.weight) : '');
+  late final _weightText = widget.set.weight > 0
+      ? fmtNumber(convertWeight(widget.set.weight, widget.set.unit, widget.unit))
+      : '';
+  late final _weight = TextEditingController(text: _weightText);
   late final _reps = TextEditingController(text: '${widget.set.reps.length}');
   late SetType? _setType = widget.set.setType;
   bool _details = true;
@@ -460,9 +468,14 @@ class _SetEditorState extends State<_SetEditor> {
   }
 
   void _done() {
-    final w = double.tryParse(_weight.text.trim().replaceAll(',', '.'));
+    final text = _weight.text.trim();
+    final w = double.tryParse(text.replaceAll(',', '.'));
+    // An untouched weight keeps its stored value and unit, so showing it
+    // converted and rounded doesn't change it.
+    final changed = text != _weightText && w != null && w > 0;
     Navigator.of(context).pop(SetEdited(_set.copyWith(
-      weight: w != null && w > 0 ? w : null,
+      weight: changed ? w : null,
+      unit: changed ? widget.unit : null,
       setType: _setType,
       clearSetType: _setType == null,
     )));
@@ -597,7 +610,7 @@ class _SetEditorState extends State<_SetEditor> {
           inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
           style: theme.textTheme.bodyLarge,
           decoration: InputDecoration(
-            suffixText: _set.unit.name,
+            suffixText: widget.unit.name,
             filled: true,
             fillColor: AppColors.cardFill,
             border: OutlineInputBorder(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../workout/readiness.dart';
 import '../workout/session.dart';
+import 'app_scope.dart';
 import 'app_theme.dart';
 import 'format.dart';
 
@@ -85,7 +86,7 @@ class _ReadinessCardState extends State<ReadinessCard> {
             lastSession: r.lastSessionSpeed,
             average: r.historicAverage,
             setType: set.setType,
-            weightLabel: fmtWeight(set.weight, set.unit),
+            weightLabel: fmtWeightIn(set.weight, set.unit, AppScope.weightUnitOf(context)),
           );
     final grayMedium = theme.textTheme.bodyMedium
         ?.copyWith(color: AppColors.subtitleGray);
@@ -99,7 +100,7 @@ class _ReadinessCardState extends State<ReadinessCard> {
           children: [
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Text('Readiness at ${fmtWeight(set.weight, set.unit)} (m/s)',
+              child: Text('Readiness at ${fmtWeightIn(set.weight, set.unit, AppScope.weightUnitOf(context))} (m/s)',
                   style: theme.textTheme.bodyLarge),
             ),
             if (comparison != null)

@@ -4,6 +4,7 @@ import '../workout/load_velocity.dart';
 import '../workout/session.dart';
 import '../workout/session_comparison.dart';
 import '../workout/set_metrics.dart';
+import 'app_scope.dart';
 import 'app_theme.dart';
 import 'app_widgets.dart';
 import 'charts/rep_velocity_chart.dart';
@@ -205,7 +206,7 @@ class RepSpeedRow extends StatelessWidget {
                         ),
                         const Spacer(),
                         Text(
-                          set.weight > 0 ? fmtWeight(set.weight, set.unit) : 'Set ${i + 1}',
+                          set.weight > 0 ? fmtWeightIn(set.weight, set.unit, AppScope.weightUnitOf(context)) : 'Set ${i + 1}',
                           style: label?.copyWith(
                               color: Colors.white, fontWeight: FontWeight.w500),
                         ),
@@ -257,7 +258,7 @@ class _SetRepChartState extends State<SetRepChart> {
       if (i == null) return 'None';
       final o = s.sets[i];
       return o.weight > 0
-          ? 'Set ${i + 1} · ${fmtWeight(o.weight, o.unit)}'
+          ? 'Set ${i + 1} · ${fmtWeightIn(o.weight, o.unit, AppScope.weightUnitOf(context))}'
           : 'Set ${i + 1}';
     }
 

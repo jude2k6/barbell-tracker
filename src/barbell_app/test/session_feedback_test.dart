@@ -31,7 +31,7 @@ RepRecord _rep(int i, double mean, {StickingRecord? sticking, double? rom}) =>
     );
 
 SetRecord _set(String id, double weight, List<RepRecord> reps,
-        {String? error, String? video, int minute = 0}) =>
+        {String? error, String? video, String csv = 'recordings/raw.csv', int minute = 0}) =>
     SetRecord(
       id: id,
       startedAt: _t0.add(Duration(minutes: minute)),
@@ -44,7 +44,7 @@ SetRecord _set(String id, double weight, List<RepRecord> reps,
       measuredHz: error == null ? 198.6 : null,
       warnings: error == null ? const ['low sample rate'] : const [],
       analysisError: error,
-      rawCsvFile: 'recordings/raw.csv',
+      rawCsvFile: csv,
       velocityTrace: const [0, 0.2, 0.5, 0.8, 0.4, 0, -0.3, 0, 0.3, 0.6, 0.2, 0],
       traceHz: 2,
       videoFile: video,
@@ -476,6 +476,75 @@ void main() {
 
     await open(tester, _session([_set('a', 140, _threeReps, video: 'videos/a.mp4')]));
     expect(find.byKey(const Key('watchVideo')), findsOneWidget);
+  });
+
+  testWidgets('Delete session can also delete its files, except ones '
+      'another session uses', (tester) async {
+    File file(String rel) => File('${dir.path}/$rel');
+    await tester.runAsync(() async {
+      for (final rel in ['recordings/a.csv', 'recordings/b.csv', 'videos/a.mp4']) {
+        await file(rel).create(recursive: true);
+      }
+      await store.save(Session(
+        id: 'other',
+        exerciseId: 'squat_low_bar',
+        startedAt: _t0.subtract(const Duration(days: 1)),
+        sets: [_set('o', 100, _threeReps, csv: 'recordings/b.csv')],
+      ));
+    });
+    await open(tester, _session([
+      _set('a', 100, _threeReps, video: 'videos/a.mp4', csv: 'recordings/a.csv'),
+      _set('b', 120, _threeReps, minute: 5, csv: 'recordings/b.csv'),
+    ]));
+
+    await tester.tap(find.byTooltip('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete session'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('deleteSessionFiles')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('confirmDeleteSession')));
+    // Listing sessions, deleting three files and the session: more real I/O
+    // than _settleIo allows for.
+    for (var i = 0; i < 4; i++) {
+      await _settleIo(tester);
+    }
+
+    final left = await tester.runAsync(() async => [
+          for (final rel in ['recordings/a.csv', 'recordings/b.csv', 'videos/a.mp4'])
+            await file(rel).exists(),
+        ]);
+    expect(left, [false, true, false]);
+    expect(await tester.runAsync(() => store.load('sess')), isNull);
+  });
+
+  testWidgets('weights show in the preferred unit; Edit Set saves a changed '
+      'weight in it and leaves an untouched one alone', (tester) async {
+    final prefs = PreferencesStore(baseDirectory: () async => dir)
+      ..value = const Preferences(weightUnit: WeightUnit.lb);
+    await open(tester, _session([_set('a', 100, _threeReps)]), prefs: prefs);
+    expect(find.bySemanticsLabel(RegExp('Set 1 · 220.5 lb')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('editSet')));
+    await tester.pumpAndSettle();
+    final field = tester.widget<TextField>(find.byKey(const Key('editWeight')));
+    expect(field.controller!.text, '220.5');
+    expect(field.decoration!.suffixText, 'lb');
+    await tester.tap(find.byKey(const Key('editDone')));
+    await tester.pumpAndSettle();
+    await _settleIo(tester);
+    var set = (await saved(tester)).sets.single;
+    expect((set.weight, set.unit), (100, WeightUnit.kg));
+
+    await tester.tap(find.byKey(const Key('editSet')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('editWeight')), '225');
+    await tester.tap(find.byKey(const Key('editDone')));
+    await tester.pumpAndSettle();
+    await _settleIo(tester);
+    set = (await saved(tester)).sets.single;
+    expect((set.weight, set.unit), (225, WeightUnit.lb));
+    expect(find.bySemanticsLabel(RegExp('Set 1 · 225 lb')), findsOneWidget);
   });
 
   testWidgets('Edit Set changes weight and type; deleting the last set '

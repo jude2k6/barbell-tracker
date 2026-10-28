@@ -287,6 +287,8 @@ class _ConnectedViewState extends State<_ConnectedView> {
                     children: [
                       Text(
                         sensor.link?.name ?? 'Sensor',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodyLarge,
                       ),
                       Text(

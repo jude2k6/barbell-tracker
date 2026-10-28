@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../video/set_video_recorder.dart';
+import '../workout/file_log.dart';
 import '../workout/guide_tips.dart';
 import '../workout/load_velocity.dart';
 import '../workout/preferences.dart';
@@ -155,7 +156,7 @@ class _SessionFeedbackPageState extends State<SessionFeedbackPage> {
       readiness: set.reps.isEmpty
           ? ReadinessResult.empty
           : buildReadiness(_withCurrent, current: _session, set: set),
-      weightLabel: fmtWeight(set.weight, set.unit),
+      weightLabel: fmtWeightIn(set.weight, set.unit, AppScope.weightUnitOf(context)),
       dayTypeName: SessionDayType.fromTags(_session.tags)?.displayName,
     );
     if (tip == null) return;
@@ -288,6 +289,7 @@ class _SessionFeedbackPageState extends State<SessionFeedbackPage> {
       context,
       set: set,
       deadlift: _session.exercise?.isDeadlift ?? false,
+      unit: _app.weightUnit,
       onSave: (s) async {
         await _saveSet(s);
         return s;
@@ -358,32 +360,75 @@ class _SessionFeedbackPageState extends State<SessionFeedbackPage> {
       builder: (_) => VideoReviewPage(
         set: set,
         video: file,
-        title: 'Set $number · ${fmtWeight(set.weight, set.unit)}',
+        title: 'Set $number · ${fmtWeightIn(set.weight, set.unit, AppScope.weightUnitOf(context))}',
         onSaveOffset: (offset) => _saveSet(set.copyWith(videoOffsetSec: offset)),
       ),
     ));
   }
 
   Future<void> _deleteSession() async {
-    final ok = await showDialog<bool>(
+    // Null: cancelled. True: also delete the sets' raw CSVs and videos.
+    var files = false;
+    final withFiles = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete session?'),
-        content: const Text(
-            'The session and its results are removed. Raw recordings are kept.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete')),
-        ],
-      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialog) => AlertDialog(
+            title: const Text('Delete session?'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('The session and its results are removed.'),
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  key: const Key('deleteSessionFiles'),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: files,
+                  onChanged: (v) => setDialog(() => files = v ?? false),
+                  title: const Text('Also delete its raw recordings and videos'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel')),
+              FilledButton(
+                  key: const Key('confirmDeleteSession'),
+                  onPressed: () => Navigator.pop(context, files),
+                  child: const Text('Delete')),
+            ],
+          ),
+        );
+      },
     );
-    if (ok != true || !mounted) return;
+    if (withFiles == null || !mounted) return;
+    if (withFiles) await _deleteSetFiles(_session.sets);
     await _app.sessions.delete(_session.id);
     if (mounted) Navigator.of(context).pop();
+  }
+
+  /// Deletes the raw CSVs and videos of [sets], except any another session
+  /// still points at.
+  Future<void> _deleteSetFiles(List<SetRecord> sets) async {
+    final kept = {
+      for (final other in await _app.sessions.list())
+        if (other.id != _session.id)
+          for (final set in other.sets) ...[?set.rawCsvFile, ?set.videoFile],
+    };
+    for (final set in sets) {
+      for (final path in [?set.rawCsvFile, ?set.videoFile]) {
+        if (kept.contains(path)) continue;
+        try {
+          final file = await _app.recordings.resolve(path);
+          if (await file.exists()) await file.delete();
+        } catch (e) {
+          AppLog.w('SessionFeedback', 'deleting $path failed', e);
+        }
+      }
+    }
   }
 
   /// Stance's sheet peek: 196 + 18 dp, +40 when readiness has a verdict,
@@ -392,7 +437,7 @@ class _SessionFeedbackPageState extends State<SessionFeedbackPage> {
     final readiness = set.reps.isEmpty
         ? null
         : buildReadiness(_withCurrent, current: _session, set: set);
-    final verdict = readiness != null && _readinessVerdict(readiness, set) != null;
+    final verdict = readiness != null && _readinessVerdict(readiness, set, _app.weightUnit) != null;
     return 214.0 +
         (verdict ? 40 : 0) +
         (widget.active ? 50 : 0) +
@@ -678,8 +723,7 @@ class _ComparisonSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final s = session;
-    final unit =
-        s.sets.where((set) => set.weight > 0).lastOrNull?.unit ?? WeightUnit.kg;
+    final unit = AppScope.weightUnitOf(context);
     final candidates = comparisonCandidates(others, s);
     final comparison = currentOnly
         ? null
@@ -833,7 +877,8 @@ class _ComparisonSection extends StatelessWidget {
 }
 
 /// Stance's readiness verdict for the mini card, if any.
-ReadinessComparison? _readinessVerdict(ReadinessResult r, SetRecord set) {
+ReadinessComparison? _readinessVerdict(
+    ReadinessResult r, SetRecord set, WeightUnit unit) {
   final current = readinessSpeed(set);
   if (!r.hasHistory || current == null) return null;
   return compareReadiness(
@@ -841,7 +886,7 @@ ReadinessComparison? _readinessVerdict(ReadinessResult r, SetRecord set) {
     lastSession: r.lastSessionSpeed,
     average: r.historicAverage,
     setType: set.setType,
-    weightLabel: fmtWeight(set.weight, set.unit),
+    weightLabel: fmtWeightIn(set.weight, set.unit, unit),
   );
 }
 
@@ -1015,7 +1060,7 @@ class _SetSelector extends StatelessWidget {
     // Stance's StanceSubheadlineMedium (15/20) and StanceHeadlineBold (17/22).
     const sub = TextStyle(
         fontSize: 15, height: 20 / 15, fontWeight: FontWeight.w500, color: AppColors.gray);
-    final weight = set.weight > 0 ? fmtWeight(set.weight, set.unit) : 'Set ${i + 1}';
+    final weight = set.weight > 0 ? fmtWeightIn(set.weight, set.unit, AppScope.weightUnitOf(context)) : 'Set ${i + 1}';
     // Stance's CircularIconButton, the chevron gray at either end.
     Widget arrow(IconData icon, bool enabled, int to, String key, String tip) =>
         Tooltip(
@@ -1038,7 +1083,7 @@ class _SetSelector extends StatelessWidget {
     // the selector's semantics label (and what tests look for).
     final summary = [
       'Set ${i + 1}',
-      if (set.weight > 0) fmtWeight(set.weight, set.unit),
+      if (set.weight > 0) fmtWeightIn(set.weight, set.unit, AppScope.weightUnitOf(context)),
       if (set.setType != null) set.setType!.displayName,
       '${set.reps.length} reps',
     ].join(' · ');
@@ -1114,7 +1159,8 @@ class _ReadinessMiniCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final verdict = _readinessVerdict(result, set);
+    final verdict =
+        _readinessVerdict(result, set, AppScope.weightUnitOf(context));
     Widget column(String label, double? speed, Color color, bool current) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

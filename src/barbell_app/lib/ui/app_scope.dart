@@ -7,6 +7,7 @@ import '../workout/analysis_runner.dart';
 import '../workout/preferences.dart';
 import '../workout/saved_sensor.dart';
 import '../workout/sensor_controller.dart';
+import '../workout/session.dart';
 import '../workout/session_store.dart';
 
 /// App-wide services, provided once above the navigator.
@@ -41,6 +42,15 @@ class AppScope extends InheritedWidget {
 
   /// The remembered sensor and its auto-reconnect; null disables it (tests).
   final SavedSensor? savedSensor;
+
+  /// The preferred weight unit, used to show every set weight.
+  WeightUnit get weightUnit =>
+      preferences?.value.weightUnit ?? const Preferences().weightUnit;
+
+  /// [weightUnit] of the nearest scope; kg without one (widget tests).
+  static WeightUnit weightUnitOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppScope>()?.weightUnit ??
+      const Preferences().weightUnit;
 
   static AppScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppScope>();

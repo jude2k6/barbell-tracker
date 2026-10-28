@@ -114,7 +114,7 @@ There is no published command that makes the user's sensor send it.
 7. Optional: a debug toggle for 0x96 = 2 that logs frame length and counter
    steps (expect 5 ms at 200 Hz), to evaluate option 2.
 8. Side fix: the sensor name `WT901BLE67` wraps onto two lines on the
-   Device page next to battery and Disconnect.
+   Device page next to battery and Disconnect. Done: one line, ellipsized.
 
 ## Probe results (25 Oct 2026, laptop BlueZ + gatttool)
 

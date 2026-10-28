@@ -219,13 +219,18 @@ server-side analysis (Vercel).
       sets recorded before the fix are garbage and need re-recording.
       Clock mode's own orientation: hand-off and test plan in
       `notes/own-orientation-clock-mode.md`.
-- [ ] **Export and share** raw CSVs off the phone (videos: done via
+- [x] **Export and share** raw CSVs: done. The Recordings page shares
+      one CSV or "Share all" through the share sheet (videos: done via
       Video export).
-- [ ] **kg/lb display**: the weight unit is now a preference used for
-      input and the Sessions cards; the feedback page still shows each
-      set's own unit.
-- [ ] **Session delete** (feedback page menu; deleting a session's last
-      set also deletes it): optionally remove its CSVs and videos too.
+- [x] **kg/lb display**: done. Every set weight shows in the preferred
+      unit (`fmtWeightIn`, as Stance's `WeightDisplayUtil`): feedback page,
+      sheets, readiness, comparison, RPE profile, video review/overlay. The
+      Edit Set sheet edits in the preferred unit and saves a changed weight
+      in it (as Stance); an untouched weight keeps its stored unit.
+- [x] **Session delete** (feedback page menu): done. The dialog has an
+      "Also delete its raw recordings and videos" box (off by default);
+      files another session still references are kept. Deleting a single
+      set (or a session's last set) still keeps its files.
 - [ ] **Drift-correction option**: an improved alternative alongside the
       faithful 5 s moving-average port, e.g. zero-velocity resets when the
       bar is still. Known issue: long pauses stretch reps and ROM reads
@@ -233,10 +238,10 @@ server-side analysis (Vercel).
 - [x] **Permissions on Android ≤ 11**: done with the Location prompt
       (notes §22). On SDK ≤ 30 the Bluetooth capability requires
       `locationWhenInUse`, asked through `PermissionService`.
-- [ ] **README**: note that CocoaPods builds need permission_handler's
-      Podfile macros (`PERMISSION_CAMERA`, `PERMISSION_MICROPHONE`,
-      `PERMISSION_BLUETOOTH`). The current Swift Package Manager build
-      needs none.
+- [x] **README**: done (28 Oct 2026). The app README now notes that
+      CocoaPods builds need permission_handler's Podfile macros
+      (`PERMISSION_CAMERA`, `PERMISSION_MICROPHONE`,
+      `PERMISSION_BLUETOOTH`); the Swift Package Manager build needs none.
 - [ ] **Simulated sensor**: a `SensorLink` that generates or replays sets,
       for end-to-end runs without hardware.
 - [ ] **DIY sensor**: firmware speaking WitMotion `55 61` frames plus a

@@ -8,6 +8,7 @@ import '../video/overlay_timeline.dart';
 import '../video/set_video_export_rules.dart';
 import '../video/set_video_exporter.dart';
 import '../workout/session.dart';
+import 'app_scope.dart';
 import 'app_theme.dart';
 import 'app_widgets.dart';
 import 'charts/rep_velocity_chart.dart' show chartAxisLabel;
@@ -89,7 +90,7 @@ class _VideoReviewPageState extends State<VideoReviewPage> {
   SetVideoOverlayInput get _exportInput => SetVideoOverlayInput.fromSet(
     widget.set.copyWith(videoOffsetSec: _offset),
     videoPath: widget.video.path,
-    weightLabel: fmtWeight(widget.set.weight, widget.set.unit),
+    weightLabel: fmtWeightIn(widget.set.weight, widget.set.unit, AppScope.weightUnitOf(context)),
   );
 
   /// Pause while exporting (the reference app frees its player), run
@@ -406,7 +407,7 @@ class _MetricsPanel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '${fmtWeight(set.weight, set.unit)} · '
+                '${fmtWeightIn(set.weight, set.unit, AppScope.weightUnitOf(context))} · '
                 'rep ${frame.repsDone}/${set.reps.length}',
                 style: small,
               ),

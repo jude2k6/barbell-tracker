@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../analysis/set_analysis.dart';
+import '../workout/load_velocity.dart';
 import '../workout/session.dart';
 
 /// Tabular (fixed-width) digits so columns of numbers line up.
@@ -19,11 +20,19 @@ String fmtPct(double? v) => v == null ? '–' : '${v.toStringAsFixed(0)} %';
 String fmtRomCm(double? metres) =>
     metres == null ? '–' : (metres * 100).toStringAsFixed(0);
 
-/// A number without a trailing `.0`.
-String fmtNumber(double v) =>
-    v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+/// A number to one decimal, without a trailing `.0` (so a converted
+/// 99.99 reads "100", not "100.0").
+String fmtNumber(double v) {
+  final r = (v * 10).round() / 10;
+  return r == r.roundToDouble() ? r.toStringAsFixed(0) : r.toStringAsFixed(1);
+}
 
 String fmtWeight(double w, WeightUnit unit) => '${fmtNumber(w)} ${unit.name}';
+
+/// [w] (stored in [from]) shown in the preferred unit [to], as Stance's
+/// `WeightDisplayUtil.displayString` does everywhere a set weight shows.
+String fmtWeightIn(double w, WeightUnit from, WeightUnit to) =>
+    fmtWeight(convertWeight(w, from, to), to);
 
 String fmtRpe(double? rpe) => rpe == null ? '–' : fmtNumber(rpe);
 

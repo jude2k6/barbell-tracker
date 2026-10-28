@@ -201,7 +201,7 @@ class _RpeProfilePageState extends State<RpeProfilePage> {
           Expanded(
             child: Text(
               [
-                fmtWeight(row.weight, row.unit),
+                fmtWeightIn(row.weight, row.unit, AppScope.weightUnitOf(context)),
                 if (row.lastRepSpeed != null)
                   '${fmtVelocity(row.lastRepSpeed)} m/s',
                 fmtShortDate(row.date),
